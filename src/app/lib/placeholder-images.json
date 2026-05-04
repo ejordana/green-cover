@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "golf-course-1",
+      "description": "Green fairway of a professional golf course",
+      "imageUrl": "https://picsum.photos/seed/golf1/800/600",
+      "imageHint": "golf course fairway"
+    },
+    {
+      "id": "golf-damaged-green",
+      "description": "Damaged green on a golf course",
+      "imageUrl": "https://picsum.photos/seed/golf2/800/600",
+      "imageHint": "damaged grass"
+    },
+    {
+      "id": "golf-machinery",
+      "description": "Professional lawn mower for golf courses",
+      "imageUrl": "https://picsum.photos/seed/golf3/800/600",
+      "imageHint": "golf machinery"
+    },
+    {
+      "id": "manager-avatar",
+      "description": "Portrait of a dedicated insurance manager",
+      "imageUrl": "https://picsum.photos/seed/manager/150/150",
+      "imageHint": "professional person"
+    }
+  ]
+}
