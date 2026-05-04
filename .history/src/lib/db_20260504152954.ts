@@ -303,14 +303,6 @@ export async function createExpert(input: {
 }
 
 export async function createClaim(input: {
-  type: ClaimType
-  description: string
-  photos: string[]
-  incidentAt?: Date
-  clientId?: string
-  locationLat?: number
-  locationLng?: number
-}): Promise<Claim> {
   const { data, error } = await supabase
     .from('claims')
     .insert({

@@ -2,72 +2,23 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createExpert, getExperts } from '@/lib/db';
+import { getExperts } from '@/lib/db';
 import type { Expert } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Shield, Search, UserPlus, Mail, Phone, Star, MapPin, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
 export default function AdminExpertsPage() {
   const [experts, setExperts] = useState<Expert[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isExpertDialogOpen, setIsExpertDialogOpen] = useState(false);
-  const [expertName, setExpertName] = useState('');
-  const [expertSpecialty, setExpertSpecialty] = useState('');
-  const [expertZone, setExpertZone] = useState('');
-  const [expertPhone, setExpertPhone] = useState('');
-  const [expertEmail, setExpertEmail] = useState('');
-  const [expertRating, setExpertRating] = useState('4.5');
-  const [isCreatingExpert, setIsCreatingExpert] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     getExperts().then(setExperts).catch(console.error);
   }, []);
-
-  const resetExpertForm = () => {
-    setExpertName('');
-    setExpertSpecialty('');
-    setExpertZone('');
-    setExpertPhone('');
-    setExpertEmail('');
-    setExpertRating('4.5');
-  };
-
-  const handleCreateExpert = async () => {
-    if (!expertName.trim() || !expertSpecialty.trim() || !expertZone.trim()) {
-      toast({ title: 'Falta informació', description: 'Introdueix nom, especialitat i zona.', variant: 'destructive' });
-      return;
-    }
-
-    setIsCreatingExpert(true);
-    try {
-      const newExpert = await createExpert({
-        name: expertName,
-        specialty: expertSpecialty,
-        zone: expertZone,
-        phone: expertPhone,
-        email: expertEmail,
-        rating: Number(expertRating) || 0,
-      });
-      setExperts((current) => [newExpert, ...current]);
-      toast({ title: 'Perit creat', description: `${newExpert.name} s'ha afegit correctament.` });
-      setIsExpertDialogOpen(false);
-      resetExpertForm();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'No s’ha pogut crear el perit.', variant: 'destructive' });
-    } finally {
-      setIsCreatingExpert(false);
-    }
-  };
 
   const filteredExperts = experts.filter(expert =>
     expert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -118,93 +69,9 @@ export default function AdminExpertsPage() {
       <main className="p-4 md:p-6 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-slate-800">Perits Externs Homologats</h2>
-          <Dialog open={isExpertDialogOpen} onOpenChange={(open) => {
-            if (!open) resetExpertForm();
-            setIsExpertDialogOpen(open);
-          }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 h-10 font-bold w-full sm:w-auto">
-                <UserPlus className="h-4 w-4" /> Alta de Perit
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md w-[95vw] rounded-xl">
-              <DialogHeader>
-                <DialogTitle className="text-base font-semibold">Nou Perit</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="expert-name" className="text-sm font-medium">Nom</Label>
-                  <Input
-                    id="expert-name"
-                    value={expertName}
-                    onChange={(e) => setExpertName(e.target.value)}
-                    placeholder="Nom del perit"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expert-specialty" className="text-sm font-medium">Especialitat</Label>
-                  <Input
-                    id="expert-specialty"
-                    value={expertSpecialty}
-                    onChange={(e) => setExpertSpecialty(e.target.value)}
-                    placeholder="Especialitat"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expert-zone" className="text-sm font-medium">Zona</Label>
-                  <Input
-                    id="expert-zone"
-                    value={expertZone}
-                    onChange={(e) => setExpertZone(e.target.value)}
-                    placeholder="Zona d’actuació"
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="expert-phone" className="text-sm font-medium">Telèfon</Label>
-                    <Input
-                      id="expert-phone"
-                      value={expertPhone}
-                      onChange={(e) => setExpertPhone(e.target.value)}
-                      placeholder="Telèfon"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="expert-email" className="text-sm font-medium">Email</Label>
-                    <Input
-                      id="expert-email"
-                      value={expertEmail}
-                      onChange={(e) => setExpertEmail(e.target.value)}
-                      placeholder="Email"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expert-rating" className="text-sm font-medium">Ràting</Label>
-                  <Input
-                    id="expert-rating"
-                    value={expertRating}
-                    onChange={(e) => setExpertRating(e.target.value)}
-                    placeholder="4.5"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="5"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setIsExpertDialogOpen(false)} className="h-10">Cancel·lar</Button>
-                  <Button
-                    onClick={handleCreateExpert}
-                    disabled={isCreatingExpert}
-                    className="h-10"
-                  >
-                    {isCreatingExpert ? 'Creant...' : 'Crear Perit'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2 h-10 font-bold w-full sm:w-auto">
+            <UserPlus className="h-4 w-4" /> Alta de Perit
+          </Button>
         </div>
 
         <Card className="border-none shadow-sm overflow-hidden">

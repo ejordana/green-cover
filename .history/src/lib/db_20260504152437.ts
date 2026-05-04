@@ -255,53 +255,6 @@ export async function getExpertById(id: string): Promise<Expert | null> {
   return rowToExpert(data)
 }
 
-export async function createManager(input: {
-  name: string
-  phone: string
-  photoUrl?: string
-  available?: boolean
-}): Promise<Manager> {
-  const { data, error } = await supabase
-    .from('managers')
-    .insert({
-      name: input.name,
-      phone: input.phone,
-      photo_url: input.photoUrl ?? '',
-      available: input.available ?? true,
-    })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return rowToManager(data)
-}
-
-export async function createExpert(input: {
-  name: string
-  specialty: string
-  zone: string
-  phone: string
-  email: string
-  rating?: number
-}): Promise<Expert> {
-  const { data, error } = await supabase
-    .from('experts')
-    .insert({
-      name: input.name,
-      specialty: input.specialty,
-      zone: input.zone,
-      phone: input.phone,
-      email: input.email,
-      rating: input.rating ?? 0,
-      active_claims: 0,
-    })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return rowToExpert(data)
-}
-
 export async function createClaim(input: {
   type: ClaimType
   description: string
