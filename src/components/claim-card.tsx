@@ -12,24 +12,28 @@ import { ca } from 'date-fns/locale';
 export function ClaimCard({ claim }: { claim: Claim }) {
   return (
     <Link href={`/claims/${claim.id}`}>
-      <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all active:scale-[0.98] bg-white">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{claim.number}</p>
-              <h3 className="font-bold text-foreground text-sm line-clamp-1">{claim.description}</h3>
-            </div>
-            <ClaimStatusBadge status={claim.status} />
-          </div>
-          
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span className="text-xs">{format(claim.createdAt, 'dd MMM yyyy', { locale: ca })}</span>
-            </div>
-            
-            <div className="flex items-center gap-1 text-primary font-bold text-xs">
-              Veure detall <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+      <Card className="group overflow-hidden border border-border/60 shadow-sm hover:shadow-md transition-all active:scale-[0.99] bg-white">
+        <CardContent className="p-0">
+          <div className="flex">
+            <div className="w-1 bg-primary flex-shrink-0 rounded-l-xl" />
+            <div className="p-4 flex-1 min-w-0">
+              <div className="flex justify-between items-start gap-2 mb-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{claim.number}</p>
+                  <h3 className="font-semibold text-foreground text-sm leading-snug line-clamp-2">{claim.description}</h3>
+                </div>
+                <ClaimStatusBadge status={claim.status} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span className="text-xs">{format(claim.createdAt, 'dd MMM yyyy', { locale: ca })}</span>
+                </div>
+                <div className="flex items-center gap-0.5 text-primary font-semibold text-xs">
+                  Veure <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>

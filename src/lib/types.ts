@@ -1,6 +1,11 @@
 
 export type ClaimType = 'RC' | 'meteorològic' | 'maquinària' | 'accident personal' | 'ciberincident' | 'altres';
 
+export interface ClaimDocument {
+  name: string;
+  url: string;
+}
+
 export type ClaimStatus = 
   | 'Declarat' 
   | 'Gestor assignat' 
@@ -31,6 +36,8 @@ export interface Claim {
   messages: ChatMessage[];
   assignedExpertId?: string;
   notes?: string;
+  report?: string;
+  documents: ClaimDocument[];
   incidentAt?: Date;
 }
 

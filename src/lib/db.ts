@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Claim, ChatMessage, Manager, Client, Expert, ClaimStatus, ClaimType } from './types'
+import type { Claim, ChatMessage, Manager, Client, Expert, ClaimStatus, ClaimType, ClaimDocument } from './types'
 
 function rowToClaim(row: any): Claim {
   return {
@@ -18,8 +18,45 @@ function rowToClaim(row: any): Claim {
     messages: (row.chat_messages ?? []).map(rowToMessage),
     assignedExpertId: row.assigned_expert_id ?? undefined,
     notes: row.notes ?? undefined,
+    report: row.report ?? undefined,
+    documents: row.documents ?? [],
     incidentAt: row.incident_at ? new Date(row.incident_at) : undefined,
   }
+}
+
+export async function uploadClaimPhoto(file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+  const filePath = `claims/photos/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('green-cover-bucket')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('green-cover-bucket')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+export async function uploadClaimDocument(file: File): Promise<ClaimDocument> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `claims/documents/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('green-cover-bucket')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('green-cover-bucket')
+    .getPublicUrl(filePath);
+
+  return { name: file.name, url: data.publicUrl };
 }
 
 function rowToMessage(row: any): ChatMessage {
@@ -149,6 +186,64 @@ export async function assignExpert(claimId: string, expertId: string): Promise<v
     .update({ assigned_expert_id: expertId, status: 'Perit designat' })
     .eq('id', claimId)
   if (error) throw error
+}
+
+export async function getClaimsByExpert(expertId: string): Promise<Claim[]> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('*, chat_messages(*)')
+    .eq('assigned_expert_id', expertId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(rowToClaim)
+}
+
+export async function submitExpertReport(
+  claimId: string,
+  report: string,
+  newPhotoFiles: File[],
+  newDocFiles: File[]
+): Promise<void> {
+  const { data: current } = await supabase
+    .from('claims')
+    .select('photos, documents')
+    .eq('id', claimId)
+    .maybeSingle()
+
+  const existingPhotos: string[] = current?.photos ?? []
+  const existingDocs: ClaimDocument[] = current?.documents ?? []
+
+  const [uploadedPhotos, uploadedDocs] = await Promise.all([
+    Promise.all(newPhotoFiles.map(uploadClaimPhoto)),
+    Promise.all(newDocFiles.map(uploadClaimDocument)),
+  ])
+
+  // Canvi d'estat garantit: operació independent de les columnes noves
+  const { error: statusError } = await supabase
+    .from('claims')
+    .update({ status: 'Informe rebut' })
+    .eq('id', claimId)
+  if (statusError) throw statusError
+
+  const { error: detailError } = await supabase
+    .from('claims')
+    .update({
+      report,
+      photos: [...existingPhotos, ...uploadedPhotos],
+      documents: [...existingDocs, ...uploadedDocs],
+    })
+    .eq('id', claimId)
+  if (detailError) throw detailError
+}
+
+export async function getExpertById(id: string): Promise<Expert | null> {
+  const { data, error } = await supabase
+    .from('experts')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToExpert(data)
 }
 
 export async function createClaim(input: {
