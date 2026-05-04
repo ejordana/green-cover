@@ -38,3 +38,15 @@ export interface Manager {
   phone: string;
   available: boolean;
 }
+
+export interface Client {
+  id: string;
+  name: string;
+  location: string;
+  managerName: string;
+  email: string;
+  phone: string;
+  policyNumber: string;
+  activeClaimsCount: number;
+  status: 'Actiu' | 'Inactiu' | 'Pendent';
+}

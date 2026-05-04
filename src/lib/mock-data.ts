@@ -1,5 +1,5 @@
 
-import { Claim, Manager } from './types';
+import { Claim, Manager, Client } from './types';
 
 export const mockManager: Manager = {
   id: 'm1',
@@ -8,6 +8,53 @@ export const mockManager: Manager = {
   phone: '+34 600 000 000',
   available: true,
 };
+
+export const mockClients: Client[] = [
+  {
+    id: 'c1',
+    name: 'Real Club de Golf El Prat',
+    location: 'Terrassa, Barcelona',
+    managerName: 'Joan Vila',
+    email: 'j.vila@rcgelprat.com',
+    phone: '937 28 10 00',
+    policyNumber: 'GC-992283-26',
+    activeClaimsCount: 2,
+    status: 'Actiu'
+  },
+  {
+    id: 'c2',
+    name: 'PGA Catalunya Golf and Wellness',
+    location: 'Caldes de Malavella, Girona',
+    managerName: 'Marta Soler',
+    email: 'm.soler@pgacatalunya.com',
+    phone: '972 47 22 49',
+    policyNumber: 'GC-881122-25',
+    activeClaimsCount: 0,
+    status: 'Actiu'
+  },
+  {
+    id: 'c3',
+    name: 'Golf Montanyà',
+    location: 'El Brull, Barcelona',
+    managerName: 'Pere Roura',
+    email: 'p.roura@golfmontanya.com',
+    phone: '938 84 01 70',
+    policyNumber: 'GC-773344-24',
+    activeClaimsCount: 1,
+    status: 'Actiu'
+  },
+  {
+    id: 'c4',
+    name: 'Club de Golf Llavaneras',
+    location: 'Sant Andreu de Llavaneres, Barcelona',
+    managerName: 'Carla Bosch',
+    email: 'c.bosch@golfllavaneras.com',
+    phone: '937 92 60 50',
+    policyNumber: 'GC-664455-25',
+    activeClaimsCount: 0,
+    status: 'Pendent'
+  }
+];
 
 export const mockClaims: Claim[] = [
   {

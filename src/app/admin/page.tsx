@@ -13,6 +13,8 @@ import { aiClaimInitialAssessment } from '@/ai/flows/ai-claim-initial-assessment
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 export default function AdminBackOffice() {
   const [selectedClaim, setSelectedClaim] = useState<typeof mockClaims[0] | null>(null);
@@ -50,11 +52,18 @@ export default function AdminBackOffice() {
           </div>
         </div>
         <div className="flex gap-4 items-center">
+          <nav className="flex gap-2 mr-4">
+            <Link href="/admin">
+              <Button variant="secondary" className="bg-secondary text-white">Sinistres</Button>
+            </Link>
+            <Link href="/admin/clients">
+              <Button variant="ghost" className="text-white hover:bg-white/10">Clients</Button>
+            </Link>
+          </nav>
           <div className="relative w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
             <Input placeholder="Cercar sinistre o camp..." className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9" />
           </div>
-          <Button variant="secondary" size="sm">Configuració</Button>
         </div>
       </header>
 
