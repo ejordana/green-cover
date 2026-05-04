@@ -21,107 +21,116 @@ export default function AdminExpertsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-primary p-4 text-white flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-secondary" />
-          <div>
-            <h1 className="text-xl font-bold">GreenCover Back-office</h1>
-            <p className="text-xs text-white/70">Xarxa de Perits - Roger Jordana</p>
+      <header className="bg-primary p-4 text-white">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl mx-auto w-full">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="hover:opacity-80 transition-opacity">
+              <Shield className="h-8 w-8 text-secondary" />
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold">GreenCover Back-office</h1>
+              <p className="text-xs text-white/70">Xarxa de Perits - Roger Jordana</p>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-4 items-center">
-          <nav className="flex gap-2 mr-4">
-            <Link href="/admin">
-              <Button variant="ghost" className="text-white hover:bg-white/10">Sinistres</Button>
-            </Link>
-            <Link href="/admin/clients">
-              <Button variant="ghost" className="text-white hover:bg-white/10">Clients</Button>
-            </Link>
-            <Link href="/admin/experts">
-              <Button variant="secondary" className="bg-secondary text-white">Perits</Button>
-            </Link>
-          </nav>
-          <div className="relative w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder="Cercar perit o especialitat..." 
-              className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <nav className="flex gap-1 bg-white/10 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 text-xs">Sinistres</Button>
+              </Link>
+              <Link href="/admin/clients">
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 text-xs">Clients</Button>
+              </Link>
+              <Link href="/admin/experts">
+                <Button variant="secondary" size="sm" className="bg-secondary text-white border-none h-8 text-xs">Perits</Button>
+              </Link>
+            </nav>
+            <div className="relative w-full sm:w-48">
+              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-white/50" />
+              <Input 
+                placeholder="Cercar perit..." 
+                className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-8 text-xs"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">Perits Externs Homologats</h2>
-          <Button className="gap-2">
+      <main className="p-4 md:p-6 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-800">Perits Externs Homologats</h2>
+          <Button className="gap-2 h-10 font-bold w-full sm:w-auto">
             <UserPlus className="h-4 w-4" /> Alta de Perit
           </Button>
         </div>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Perit / Professional</TableHead>
-                  <TableHead>Especialitat</TableHead>
-                  <TableHead>Zona d'Actuació</TableHead>
-                  <TableHead>Ràting</TableHead>
-                  <TableHead>Càrrega de Treball</TableHead>
-                  <TableHead>Contacte</TableHead>
-                  <TableHead className="text-right">Accions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExperts.map((expert) => (
-                  <TableRow key={expert.id}>
-                    <TableCell className="font-bold">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">
-                          {expert.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        {expert.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Briefcase className="h-3 w-3 text-slate-400" />
-                        <span className="text-sm">{expert.specialty}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3 text-slate-400" />
-                        <span className="text-sm text-slate-600">{expert.zone}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-amber-500 font-bold">
-                        <Star className="h-3.5 w-3.5 fill-amber-500" />
-                        {expert.rating}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={expert.activeClaims > 1 ? 'destructive' : 'secondary'} className="rounded-full">
-                        {expert.activeClaims} casos actius
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-3">
-                        <button className="text-slate-400 hover:text-primary"><Mail className="h-4 w-4" /></button>
-                        <button className="text-slate-400 hover:text-primary"><Phone className="h-4 w-4" /></button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Historial</Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50">
+                    <TableHead className="text-xs uppercase">Perit / Professional</TableHead>
+                    <TableHead className="text-xs uppercase hidden sm:table-cell">Especialitat</TableHead>
+                    <TableHead className="text-xs uppercase hidden lg:table-cell">Zona</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Ràting</TableHead>
+                    <TableHead className="text-xs uppercase hidden md:table-cell">Càrrega</TableHead>
+                    <TableHead className="text-right"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredExperts.map((expert) => (
+                    <TableRow key={expert.id} className="hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="font-bold text-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-[10px] flex-shrink-0">
+                            {expert.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div className="flex flex-col">
+                            <span>{expert.name}</span>
+                            <span className="text-[10px] text-slate-400 font-normal sm:hidden">{expert.specialty}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <Briefcase className="h-3 w-3" />
+                          <span className="text-xs">{expert.specialty}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <MapPin className="h-3 w-3" />
+                          <span className="text-xs">{expert.zone}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="inline-flex items-center gap-1 text-amber-500 font-bold text-xs">
+                          <Star className="h-3 w-3 fill-amber-500" />
+                          {expert.rating}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant={expert.activeClaims > 1 ? 'destructive' : 'secondary'} className="rounded-full text-[10px] px-2 py-0">
+                          {expert.activeClaims} casos
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                            <Mail className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary">
+                            <Phone className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </main>
