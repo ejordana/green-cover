@@ -29,6 +29,7 @@ export interface Claim {
   location?: { lat: number; lng: number };
   photos: string[];
   messages: ChatMessage[];
+  assignedExpertId?: string;
 }
 
 export interface Manager {
@@ -49,4 +50,15 @@ export interface Client {
   policyNumber: string;
   activeClaimsCount: number;
   status: 'Actiu' | 'Inactiu' | 'Pendent';
+}
+
+export interface Expert {
+  id: string;
+  name: string;
+  specialty: string;
+  zone: string;
+  phone: string;
+  email: string;
+  rating: number;
+  activeClaims: number;
 }

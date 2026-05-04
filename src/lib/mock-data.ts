@@ -1,5 +1,5 @@
 
-import { Claim, Manager, Client } from './types';
+import { Claim, Manager, Client, Expert } from './types';
 
 export const mockManager: Manager = {
   id: 'm1',
@@ -8,6 +8,39 @@ export const mockManager: Manager = {
   phone: '+34 600 000 000',
   available: true,
 };
+
+export const mockExperts: Expert[] = [
+  {
+    id: 'e1',
+    name: 'Carles Agrònom',
+    specialty: 'Agronomia i Gespa',
+    zone: 'Catalunya Central',
+    phone: '611 222 333',
+    email: 'carles.perit@expertgolf.cat',
+    rating: 4.8,
+    activeClaims: 2
+  },
+  {
+    id: 'e2',
+    name: 'Laura Mecànica',
+    specialty: 'Maquinària Industrial',
+    zone: 'Barcelona / Maresme',
+    phone: '622 333 444',
+    email: 'laura.m@peritatges.cat',
+    rating: 4.9,
+    activeClaims: 1
+  },
+  {
+    id: 'e3',
+    name: 'Jordi Civil',
+    specialty: 'Resp. Civil i Danys',
+    zone: 'Tarragona / Lleida',
+    phone: '633 444 555',
+    email: 'jordi.civil@assegurances.cat',
+    rating: 4.5,
+    activeClaims: 0
+  }
+];
 
 export const mockClients: Client[] = [
   {

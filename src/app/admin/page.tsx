@@ -2,11 +2,11 @@
 "use client";
 
 import { useState } from 'react';
-import { mockClaims } from '@/lib/mock-data';
+import { mockClaims, mockExperts } from '@/lib/mock-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ClaimStatusBadge } from '@/components/claim-status-badge';
-import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock } from 'lucide-react';
+import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock, UserCheck, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { aiClaimInitialAssessment } from '@/ai/flows/ai-claim-initial-assessment';
@@ -15,11 +15,13 @@ import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
 export default function AdminBackOffice() {
   const [selectedClaim, setSelectedClaim] = useState<typeof mockClaims[0] | null>(null);
   const [assessment, setAssessment] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [isExpertDialogOpen, setIsExpertDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const handleAIAnalyze = async (claim: typeof mockClaims[0]) => {
@@ -41,6 +43,15 @@ export default function AdminBackOffice() {
     }
   };
 
+  const handleAssignExpert = (expert: typeof mockExperts[0]) => {
+    toast({
+      title: "Perit assignat",
+      description: `${expert.name} ha estat assignat al sinistre ${selectedClaim?.number}.`,
+    });
+    setIsExpertDialogOpen(false);
+    // En una app real, aquí faríem l'update a la DB
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-primary p-4 text-white flex items-center justify-between">
@@ -58,6 +69,9 @@ export default function AdminBackOffice() {
             </Link>
             <Link href="/admin/clients">
               <Button variant="ghost" className="text-white hover:bg-white/10">Clients</Button>
+            </Link>
+            <Link href="/admin/experts">
+              <Button variant="ghost" className="text-white hover:bg-white/10">Perits</Button>
             </Link>
           </nav>
           <div className="relative w-64">
@@ -157,7 +171,42 @@ export default function AdminBackOffice() {
                 )}
 
                 <div className="pt-4 border-t space-y-2">
-                  <Button variant="outline" className="w-full text-xs">Assignar Perit Extern</Button>
+                  <Dialog open={isExpertDialogOpen} onOpenChange={setIsExpertDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full text-xs gap-2">
+                        <UserCheck className="h-3.5 w-3.5" /> Assignar Perit Extern
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Seleccionar Perit per {selectedClaim.number}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 py-4">
+                        {mockExperts.map((expert) => (
+                          <div 
+                            key={expert.id} 
+                            className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center group"
+                            onClick={() => handleAssignExpert(expert)}
+                          >
+                            <div className="space-y-1">
+                              <p className="font-bold text-sm group-hover:text-primary">{expert.name}</p>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                <Badge variant="outline" className="text-[9px] py-0">{expert.specialty}</Badge>
+                                <span>{expert.zone}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                                <Star className="h-3 w-3 fill-amber-500" /> {expert.rating}
+                              </div>
+                              <p className="text-[10px] text-slate-400">{expert.activeClaims} actius</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
                   <Button className="w-full text-xs">Actualitzar Estat</Button>
                 </div>
               </CardContent>

@@ -37,6 +37,9 @@ export default function AdminClientsPage() {
             <Link href="/admin/clients">
               <Button variant="secondary" className="bg-secondary text-white">Clients</Button>
             </Link>
+            <Link href="/admin/experts">
+              <Button variant="ghost" className="text-white hover:bg-white/10">Perits</Button>
+            </Link>
           </nav>
           <div className="relative w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
