@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { mockClaims, mockExperts } from '@/lib/mock-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ClaimStatusBadge } from '@/components/claim-status-badge';
-import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock, UserCheck, Star, ArrowLeft } from 'lucide-react';
+import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock, UserCheck, Star, ArrowLeft, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { aiClaimInitialAssessment } from '@/ai/flows/ai-claim-initial-assessment';
@@ -17,15 +17,27 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Claim, Expert } from '@/lib/types';
 
 export default function AdminBackOffice() {
-  const [selectedClaim, setSelectedClaim] = useState<typeof mockClaims[0] | null>(null);
+  const [claims, setClaims] = useState<Claim[]>(mockClaims);
+  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [isExpertDialogOpen, setIsExpertDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleAIAnalyze = async (claim: typeof mockClaims[0]) => {
+  const selectedClaim = useMemo(() => 
+    claims.find(c => c.id === selectedClaimId) || null,
+    [claims, selectedClaimId]
+  );
+
+  const assignedExpert = useMemo(() => {
+    if (!selectedClaim?.assignedExpertId) return null;
+    return mockExperts.find(e => e.id === selectedClaim.assignedExpertId);
+  }, [selectedClaim]);
+
+  const handleAIAnalyze = async (claim: Claim) => {
     setLoading(true);
     try {
       const result = await aiClaimInitialAssessment({
@@ -44,10 +56,18 @@ export default function AdminBackOffice() {
     }
   };
 
-  const handleAssignExpert = (expert: typeof mockExperts[0]) => {
+  const handleAssignExpert = (expert: Expert) => {
+    if (!selectedClaimId) return;
+
+    setClaims(prev => prev.map(c => 
+      c.id === selectedClaimId 
+        ? { ...c, assignedExpertId: expert.id, status: 'Perit designat' as const, updatedAt: new Date() } 
+        : c
+    ));
+
     toast({
       title: "Perit assignat",
-      description: `${expert.name} ha estat assignat al sinistre ${selectedClaim?.number}.`,
+      description: `${expert.name} ha estat assignat al sinistre ${selectedClaim?.number}. L'estat ha canviat a 'Perit designat'.`,
     });
     setIsExpertDialogOpen(false);
   };
@@ -79,14 +99,17 @@ export default function AdminBackOffice() {
             </nav>
             <div className="relative w-full sm:w-48">
               <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-white/50" />
-              <Input placeholder="Cercar..." className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-8 text-xs" />
+              <input 
+                placeholder="Cercar..." 
+                className="w-full pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-8 text-xs rounded-md focus:outline-none focus:ring-1 focus:ring-secondary" 
+              />
             </div>
           </div>
         </div>
       </header>
 
       <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className={cn("lg:col-span-8 space-y-6", selectedClaim && "hidden lg:block")}>
+        <div className={cn("lg:col-span-8 space-y-6", selectedClaimId && "hidden lg:block")}>
           <Card className="border-none shadow-sm overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between py-4">
               <CardTitle className="text-lg">Sinistres Pendent</CardTitle>
@@ -99,19 +122,22 @@ export default function AdminBackOffice() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50/50">
-                      <TableHead className="text-xs uppercase">Referència</TableHead>
-                      <TableHead className="text-xs uppercase">Client</TableHead>
-                      <TableHead className="text-xs uppercase hidden sm:table-cell">Tipus</TableHead>
-                      <TableHead className="text-xs uppercase">Estat</TableHead>
+                      <TableHead className="text-xs uppercase font-bold">Referència</TableHead>
+                      <TableHead className="text-xs uppercase font-bold">Client</TableHead>
+                      <TableHead className="text-xs uppercase font-bold hidden sm:table-cell">Tipus</TableHead>
+                      <TableHead className="text-xs uppercase font-bold">Estat</TableHead>
                       <TableHead className="text-right"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockClaims.map((claim) => (
+                    {claims.map((claim) => (
                       <TableRow 
                         key={claim.id} 
-                        className="cursor-pointer hover:bg-slate-50 transition-colors" 
-                        onClick={() => { setSelectedClaim(claim); setAssessment(null); }}
+                        className={cn(
+                          "cursor-pointer hover:bg-slate-50 transition-colors",
+                          selectedClaimId === claim.id && "bg-slate-100"
+                        )} 
+                        onClick={() => { setSelectedClaimId(claim.id); setAssessment(null); }}
                       >
                         <TableCell className="font-bold text-xs">{claim.number}</TableCell>
                         <TableCell className="text-xs">Real Club Golf El Prat</TableCell>
@@ -129,12 +155,12 @@ export default function AdminBackOffice() {
           </Card>
         </div>
 
-        <div className={cn("lg:col-span-4", !selectedClaim && "hidden lg:block")}>
+        <div className={cn("lg:col-span-4", !selectedClaimId && "hidden lg:block")}>
           {selectedClaim ? (
             <Card className="border-none shadow-sm border-l-4 border-l-primary sticky top-6">
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-2 mb-2 lg:hidden">
-                   <Button variant="ghost" size="sm" onClick={() => setSelectedClaim(null)} className="h-8 px-2 -ml-2">
+                   <Button variant="ghost" size="sm" onClick={() => setSelectedClaimId(null)} className="h-8 px-2 -ml-2">
                     <ArrowLeft className="h-4 w-4 mr-1" /> Tornar
                    </Button>
                 </div>
@@ -142,6 +168,9 @@ export default function AdminBackOffice() {
                   Detall del Cas
                   <span className="text-xs font-normal text-slate-500">{selectedClaim.number}</span>
                 </CardTitle>
+                <div className="mt-1">
+                  <ClaimStatusBadge status={selectedClaim.status} className="text-[10px] py-0" />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -152,6 +181,21 @@ export default function AdminBackOffice() {
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 border border-orange-100 text-orange-800 text-[11px] font-bold">
                   <Clock className="h-4 w-4 flex-shrink-0" /> SLA: Resten 14 hores per complir les 72h.
                 </div>
+
+                {assignedExpert && (
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 space-y-2">
+                    <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Perit Assignat</label>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-[10px]">
+                        {assignedExpert.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-emerald-900">{assignedExpert.name}</span>
+                        <span className="text-[10px] text-emerald-600">{assignedExpert.specialty}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-2">
                   <Button 
@@ -189,18 +233,22 @@ export default function AdminBackOffice() {
                   <Dialog open={isExpertDialogOpen} onOpenChange={setIsExpertDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="w-full text-xs gap-2 h-10">
-                        <UserCheck className="h-3.5 w-3.5" /> Assignar Perit Extern
+                        <UserCheck className="h-3.5 w-3.5" /> 
+                        {assignedExpert ? 'Reassignar Perit' : 'Assignar Perit Extern'}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-md w-[95vw] rounded-xl">
                       <DialogHeader>
-                        <DialogTitle className="text-lg">Seleccionar Perit</DialogTitle>
+                        <DialogTitle className="text-lg font-bold">Seleccionar Perit</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
                         {mockExperts.map((expert) => (
                           <div 
                             key={expert.id} 
-                            className="p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center group"
+                            className={cn(
+                              "p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center group",
+                              selectedClaim.assignedExpertId === expert.id && "border-emerald-500 bg-emerald-50/50"
+                            )}
                             onClick={() => handleAssignExpert(expert)}
                           >
                             <div className="space-y-1">
