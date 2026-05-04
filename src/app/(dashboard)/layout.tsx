@@ -1,18 +1,27 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
-import { ManagerContactCard } from '@/components/manager-contact-card';
 import { getManager } from '@/lib/db';
 import type { Manager } from '@/lib/types';
-import { LayoutDashboard, FileText, Shield } from 'lucide-react';
+import { LayoutDashboard, FileText, Shield as ShieldIcon, Phone, MessageSquare, Headphones } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { PortalHeader } from '@/components/portal-header';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const isWideClientDesktop = searchParams?.get('role') === 'client' && searchParams?.get('channel') === 'desktop';
+  const queryString = searchParams?.toString();
+  const addQueryToHref = (href: string) => queryString ? `${href}?${queryString}` : href;
   const [manager, setManager] = useState<Manager | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     getManager().then(setManager).catch(console.error);
@@ -21,39 +30,90 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { label: 'Inici', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Sinistres', href: '/claims', icon: FileText },
-    { label: 'Pòlissa', href: '/policy', icon: Shield },
+    { label: 'Pòlissa', href: '/policy', icon: ShieldIcon },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto bg-background pb-24 shadow-xl shadow-black/5">
-      <header className="px-4 pt-4 pb-3 bg-white sticky top-0 z-50 border-b border-border/60">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary p-1.5 rounded-lg">
-              <Shield className="h-4 w-4 text-emerald-300" />
-            </div>
-            <span className="text-base font-bold text-primary tracking-tight">GreenCover</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground font-medium">En línia</span>
-          </div>
-        </div>
-        {manager && <ManagerContactCard manager={manager} />}
-      </header>
+    <div className={cn(
+      'min-h-screen flex flex-col mx-auto bg-slate-50 pb-24 shadow-xl shadow-black/5',
+      isWideClientDesktop ? 'max-w-7xl' : 'max-w-md'
+    )}>
+      <PortalHeader
+        title="Portal Client"
+        navItems={[
+          { label: 'Inici', href: addQueryToHref('/dashboard'), active: pathname === '/dashboard' },
+          { label: 'Sinistres', href: addQueryToHref('/claims'), active: pathname.startsWith('/claims') },
+          { label: 'Pòlissa', href: addQueryToHref('/policy'), active: pathname === '/policy' },
+        ]}
+        userName="Real Club Golf"
+        userInitials="RC"
+        userSubtitle={manager ? `Gestor: ${manager.name}` : undefined}
+      />
 
-      <main className="flex-1 p-4 overflow-y-auto">
+      <main className="flex-1 p-4 overflow-y-auto bg-slate-50">
         {children}
       </main>
 
-      <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-border/60 flex justify-around px-2 pt-2 pb-3 z-50">
+      {manager && (
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger asChild>
+            <button className={cn(
+              'fixed bottom-20 right-4 z-50 h-12 w-12 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-colors',
+            )}>
+              <Headphones className="h-5 w-5" />
+              {manager.available && (
+                <span className="absolute top-0.5 right-0.5 h-3 w-3 rounded-full bg-green-400 border-2 border-white" />
+              )}
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-2xl px-6 pb-8">
+            <SheetHeader className="mb-6">
+              <SheetTitle className="text-left text-sm font-semibold text-muted-foreground">El teu gestor</SheetTitle>
+            </SheetHeader>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative">
+                <Avatar className="h-16 w-16 border border-border">
+                  <AvatarImage src={manager.photoUrl} alt={manager.name} />
+                  <AvatarFallback className="text-lg font-bold">{manager.name[0]}</AvatarFallback>
+                </Avatar>
+                {manager.available && (
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+                )}
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{manager.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {manager.available ? 'Disponible ara' : 'No disponible'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={() => window.location.href = `tel:${manager.phone}`}
+              >
+                <Phone className="h-4 w-4" /> Trucar
+              </Button>
+              <Button className="flex-1 gap-2" onClick={() => { setSheetOpen(false); router.push(addQueryToHref('/xat')); }}>
+                <MessageSquare className="h-4 w-4" /> Escriure
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      <nav className={cn(
+        'fixed bottom-0 w-full bg-white border-t border-border/60 flex justify-around px-2 pt-2 pb-3 z-50 mx-auto',
+        isWideClientDesktop ? 'max-w-7xl' : 'max-w-md'
+      )}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={addQueryToHref(item.href)}
               className="flex flex-col items-center gap-1 min-w-[56px]"
             >
               <div className={cn(

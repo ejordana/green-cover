@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ClaimType } from '@/lib/types';
 import { createClaim, uploadClaimPhoto } from '@/lib/db';
-import { Camera, MapPin, ArrowLeft, ArrowRight, CheckCircle2, ImageIcon } from 'lucide-react';
+import { Camera, ArrowLeft, ArrowRight, CheckCircle2, ImageIcon, Mic, MicOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,12 +31,116 @@ export default function NewClaimPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]); // URLs temporals per la UI
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState<ClaimType | null>(null);
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [incidentAt, setIncidentAt] = useState(() =>
     new Date().toISOString().slice(0, 16)
   );
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [latitude, setLatitude] = useState(41.3851);
+  const [longitude, setLongitude] = useState(2.1734);
+  const [locationName, setLocationName] = useState('Forat 14 - Green');
+  const [isGeolocating, setIsGeolocating] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'ca-ES';
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setDescription(prev => prev + transcript);
+      };
+      recognitionRef.current.onend = () => setIsRecording(false);
+      recognitionRef.current.onerror = () => setIsRecording(false);
+      setSpeechSupported(true);
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) return;
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
+
+  const handleGetLocation = async () => {
+    setIsGeolocating(true);
+    try {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude: lat, longitude: lng } = position.coords;
+            setLatitude(lat);
+            setLongitude(lng);
+            setLocationName('La meva ubicació actual');
+            toast({
+              title: 'Ubicació detectada',
+              description: `Coordenades: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`,
+            });
+            setIsGeolocating(false);
+          },
+          (error) => {
+            console.error(error);
+            toast({
+              title: "No s'ha pogut accedir a la ubicació",
+              description: "Permet l'accés a la geolocalització en la configuració del navegador.",
+              variant: 'destructive',
+            });
+            setIsGeolocating(false);
+          }
+        );
+      } else {
+        toast({
+          title: 'Geolocalització no disponible',
+          description: 'El teu navegador no admet geolocalització.',
+          variant: 'destructive',
+        });
+        setIsGeolocating(false);
+      }
+    } catch (error) {
+      console.error(error);
+      setIsGeolocating(false);
+    }
+  };
+
+  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    
+    // Map pixel position to coordinates (Barcelona area)
+    // bbox=2.0634,41.3251,2.2834,41.4451
+    const minLng = 2.0634;
+    const maxLng = 2.2834;
+    const minLat = 41.3251;
+    const maxLat = 41.4451;
+    
+    const newLng = minLng + (x * (maxLng - minLng));
+    const newLat = maxLat - (y * (maxLat - minLat));
+    
+    setLatitude(newLat);
+    setLongitude(newLng);
+    setLocationName('Ubicació personalitzada');
+  };
+
+  const mapSrcUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -58,6 +162,7 @@ export default function NewClaimPage() {
 
       await createClaim({
         type: selectedType,
+        title: title,
         description: description,
         photos: uploadedUrls,
         incidentAt: new Date(incidentAt),
@@ -172,6 +277,16 @@ export default function NewClaimPage() {
             {/* SECCIÓ DE DADES: Fora del flex de les fotos per anar cap avall */}
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
+                <Label className="font-bold">Títol breu</Label>
+                <Input
+                  placeholder="Ex: Granissada al camp nord"
+                  maxLength={80}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label className="font-bold">Data i hora del sinistre</Label>
                 <input
                   type="datetime-local"
@@ -183,23 +298,54 @@ export default function NewClaimPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-bold">Què ha passat?</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="font-bold">Què ha passat?</Label>
+                  {speechSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleRecording}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
+                        isRecording
+                          ? 'border-destructive bg-destructive text-white'
+                          : 'border-muted bg-white text-muted-foreground hover:border-foreground hover:text-foreground'
+                      )}
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="h-4 w-4" />
+                          Parar
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="h-4 w-4" />
+                          Dictar
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
                 <Textarea
                   placeholder="Descriu breument el sinistre..."
                   className="min-h-[120px] bg-white text-base"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
-                <p className="text-[10px] text-muted-foreground text-right">
-                  {description.length}/1000 caràcters
-                </p>
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{description.length}/1000 caràcters</span>
+                  {speechSupported ? (
+                    <span>{isRecording ? 'Escoltant els teus comentaris…' : 'Prem Dictar per parlar en lloc d’escriure.'}</span>
+                  ) : (
+                    <span className="text-slate-400">El teu navegador no admet dictat directe.</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           <Button
             className="w-full h-12 text-lg font-bold"
-            disabled={!description || isUploading} // Evitem clicks si estem pujant
+            disabled={!title || !description || isUploading} // Evitem clicks si estem pujant
             onClick={() => setStep(3)}
           >
             {isUploading ? "Pujant..." : "Continuar"} <ArrowRight className="ml-2 h-5 w-5" />
@@ -212,19 +358,90 @@ export default function NewClaimPage() {
           <div className="space-y-4">
             <Label className="text-lg font-bold">Ubicació i Confirmació</Label>
 
+            {/* Geolocation Controls */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <p className="text-sm font-semibold text-slate-900">Ajusta la ubicació del sinistre</p>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Latitud</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={latitude}
+                    onChange={(e) => setLatitude(parseFloat(e.target.value))}
+                    className="w-full px-2 py-1 text-sm rounded-md border border-input bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Longitud</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={longitude}
+                    onChange={(e) => setLongitude(parseFloat(e.target.value))}
+                    className="w-full px-2 py-1 text-sm rounded-md border border-input bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={handleGetLocation}
+                disabled={isGeolocating}
+              >
+                {isGeolocating ? 'Detectant ubicació...' : '📍 Usar la meva ubicació'}
+              </Button>
+
+              <p className="text-xs text-slate-600">
+                💡 Pots editar les coordenades manualment o fer clic al mapa per seleccionar la ubicació.
+              </p>
+            </div>
+
             <Card className="bg-white overflow-hidden border-none shadow-sm">
-              <div className="h-40 bg-muted flex items-center justify-center relative">
-                <MapPin className="h-8 w-8 text-primary animate-bounce" />
-                <div className="absolute bottom-2 left-2 bg-white/90 px-2 py-1 rounded text-[10px] font-bold">
-                  Geolocalitzat: Forat 14 - Green
+              <div 
+                className="relative h-72 w-full cursor-crosshair"
+                onClick={handleMapClick}
+                title="Fes clic per seleccionar la ubicació del sinistre"
+              >
+                <iframe
+                  src={mapSrcUrl}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 'none', pointerEvents: 'none' }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Ubicació del sinistre"
+                />
+                
+                {/* Location badge overlay */}
+                <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-md z-10 pointer-events-none">
+                  <p className="text-[11px] font-semibold text-emerald-700">✓ {locationName}</p>
+                  <p className="text-[10px] text-slate-600">{latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E</p>
+                </div>
+
+                {/* Instruction overlay for mobile */}
+                <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2 py-1.5 rounded-lg text-[10px] pointer-events-none">
+                  Fes clic per ajustar
                 </div>
               </div>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between border-b pb-2">
+                  <span className="text-sm text-muted-foreground">Ubicació</span>
+                  <span className="text-sm font-bold text-primary">{locationName}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-sm text-muted-foreground">Coordenades</span>
+                  <span className="text-sm font-mono text-slate-700">{latitude.toFixed(4)}° N, {longitude.toFixed(4)}° E</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
                   <span className="text-sm text-muted-foreground">Tipus</span>
                   <span className="text-sm font-bold text-primary">{selectedType}</span>
                 </div>
-                <div className="flex justify-between border-b pb-2">
+                <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Data/Hora</span>
                   <span className="text-sm font-bold">
                     {format(new Date(incidentAt), "d MMM yyyy HH:mm", { locale: ca })}
@@ -235,7 +452,7 @@ export default function NewClaimPage() {
 
             <div className="p-4 rounded-xl bg-accent text-accent-foreground text-sm flex gap-3">
               <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-              <p>El teu gestor rebrà la declaració a l'instant i obrirà el cas en menys de 2 hores.</p>
+              <p>El teu gestor rebrà la declaració i obrirà el cas en menys de 2 hores.</p>
             </div>
           </div>
           <Button

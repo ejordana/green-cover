@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getExperts } from '@/lib/db';
 import type { Expert } from '@/lib/types';
-import { Shield, Star, ChevronRight, Briefcase } from 'lucide-react';
+import { Shield, Star, ChevronRight, Briefcase, Home } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -23,14 +23,20 @@ export default function PeritLandingPage() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(80,160,100,0.15)_0%,_transparent_60%)]" />
 
       <div className="relative z-10 w-full max-w-sm">
-        <div className="flex items-center gap-2.5 mb-8">
-          <div className="bg-white/10 border border-white/20 p-2.5 rounded-xl">
-            <Shield className="h-5 w-5 text-emerald-300" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-white/10 border border-white/20 p-2.5 rounded-xl">
+              <Shield className="h-5 w-5 text-emerald-300" />
+            </div>
+            <div>
+              <span className="text-white font-semibold">GreenCover</span>
+              <p className="text-white/50 text-xs">Portal de Perits</p>
+            </div>
           </div>
-          <div>
-            <span className="text-white font-semibold">GreenCover</span>
-            <p className="text-white/50 text-xs">Portal de Perits</p>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white/80 bg-white/10 hover:bg-white/20 transition">
+            <Home className="h-4 w-4" />
+            Tornar a l’inici
+          </Link>
         </div>
 
         <h1 className="text-2xl font-bold text-white mb-1 tracking-tight">Qui ets?</h1>

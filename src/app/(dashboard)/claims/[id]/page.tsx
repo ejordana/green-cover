@@ -5,10 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { getClaimById, getExpertById } from '@/lib/db';
 import type { Claim, ClaimStatus, Expert } from '@/lib/types';
 import { ChatPanel } from '@/components/chat-panel';
-import { ClaimStatusBadge } from '@/components/claim-status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Calendar, Euro, Clock, ImageIcon, Phone, Mail, Paperclip, Download } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Calendar, Euro, Clock, ImageIcon, Phone, Mail, Paperclip, Download, CheckCircle2, FileText, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -22,13 +22,21 @@ function showPhotoPlaceholder(e: React.SyntheticEvent<HTMLImageElement>) {
 
 const STATUS_FLOW: ClaimStatus[] = [
   'Declarat',
-  'Gestor assignat',
   'Perit designat',
   'Informe rebut',
   'Aprovat',
   'Pagat',
   'Tancat',
 ];
+
+const CLAIM_TYPE_LABEL: Record<string, string> = {
+  'RC':                'Responsabilitat Civil',
+  'meteorològic':      'Meteorològic',
+  'maquinària':        'Maquinària',
+  'accident personal': 'Accident Personal',
+  'ciberincident':     'Ciberincident',
+  'altres':            'Altres',
+};
 
 export default function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -69,183 +77,230 @@ export default function ClaimDetailPage() {
 
   const currentStep = STATUS_FLOW.indexOf(claim.status);
   const incidentDate = claim.incidentAt ?? claim.createdAt;
+  const isClosed = claim.status === 'Tancat';
+  const typeLabel = CLAIM_TYPE_LABEL[claim.type] ?? claim.type;
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-5 pb-10">
+
       {/* Capçalera */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="-ml-2">
+      <div className="flex items-start gap-3">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="-ml-2 mt-0.5 shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            {claim.number}
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">
+            {claim.number} · {typeLabel}
           </p>
-          <h2 className="font-semibold truncate text-sm">{claim.description}</h2>
+          <h1 className="text-xl font-bold text-foreground leading-snug">
+            {claim.title || typeLabel}
+          </h1>
         </div>
-        <ClaimStatusBadge status={claim.status} />
       </div>
 
-      {/* Timeline d'estats */}
-      <Card className="border border-border/60 shadow-sm overflow-hidden bg-white">
-        <CardContent className="p-4 pb-3">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Estat del sinistre
-          </p>
-          <div className="flex items-start">
-            {STATUS_FLOW.map((s, i) => (
-              <div key={s} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <div className={cn(
-                    'h-3 w-3 rounded-full border-2 transition-colors',
-                    i < currentStep  && 'bg-primary border-primary',
-                    i === currentStep && 'bg-primary border-primary ring-2 ring-primary/20 ring-offset-1',
-                    i > currentStep  && 'bg-white border-muted',
-                  )} />
-                  <span className={cn(
-                    'text-[8px] font-semibold text-center leading-tight w-10 break-words',
-                    i <= currentStep ? 'text-primary' : 'text-muted-foreground/40'
-                  )}>
-                    {s}
-                  </span>
-                </div>
-                {i < STATUS_FLOW.length - 1 && (
-                  <div className={cn(
-                    'h-0.5 flex-1 mb-4',
-                    i < currentStep ? 'bg-primary' : 'bg-muted'
-                  )} />
-                )}
+      <Tabs defaultValue="detalls" className="w-full">
+        <TabsList className="w-full shadow-sm">
+          <TabsTrigger value="detalls" className="flex-1">Detalls</TabsTrigger>
+          <TabsTrigger value="xat" className="flex-1">Gestor</TabsTrigger>
+        </TabsList>
+
+        {/* ── Pestanya Detalls ── */}
+        <TabsContent value="detalls" className="space-y-4 mt-4">
+
+          {/* Estat i progrés */}
+          <Card className="shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-border/50 bg-white">
+            <CardContent className="p-5 space-y-5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-foreground">Estat del sinistre</span>
+                <span className={cn(
+                  "text-xs font-semibold px-2.5 py-1 rounded-md",
+                  isClosed
+                    ? "bg-slate-100 text-slate-600"
+                    : "bg-primary/10 text-primary"
+                )}>
+                  {claim.status}
+                </span>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Info bàsica */}
-      <Card className="border border-border/60 shadow-sm bg-white">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Tipus de sinistre</span>
-            <span className="text-xs font-semibold capitalize">{claim.type}</span>
-          </div>
-          <div className="flex items-center justify-between border-t pt-3">
-            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3 w-3" /> Data del sinistre
-            </span>
-            <span className="text-xs font-semibold">
-              {format(incidentDate, "d MMM yyyy 'a les' HH:mm", { locale: ca })}
-            </span>
-          </div>
-          <div className="flex items-center justify-between border-t pt-3">
-            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3 w-3" /> Data declaració
-            </span>
-            <span className="text-xs font-semibold">
-              {format(claim.createdAt, 'd MMM yyyy', { locale: ca })}
-            </span>
-          </div>
-          {claim.estimatedCost != null && (
-            <div className="flex items-center justify-between border-t pt-3">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Euro className="h-3 w-3" /> Estimació econòmica
-              </span>
-              <span className="text-sm font-bold text-primary">
-                {claim.estimatedCost.toLocaleString('ca-ES')} €
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Fotos */}
-      {claim.photos.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-            <ImageIcon className="h-3 w-3" /> Fotografies ({claim.photos.length})
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {claim.photos.map((url, idx) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                <img
-                  src={url}
-                  alt={`Foto ${idx + 1}`}
-                  className="w-28 h-28 object-cover rounded-xl border border-border/60 shadow-sm hover:opacity-90 transition-opacity"
-                  onError={showPhotoPlaceholder}
+              {/* Stepper */}
+              <div className="relative flex items-start justify-between pt-1">
+                <div className="absolute top-[11px] left-3 right-3 h-px bg-slate-200" />
+                <div
+                  className="absolute top-[11px] left-3 h-px bg-primary transition-all duration-500"
+                  style={{
+                    width: currentStep === 0
+                      ? '0%'
+                      : `calc(${(currentStep / (STATUS_FLOW.length - 1)) * 100}% - 1.5rem + ${(currentStep / (STATUS_FLOW.length - 1)) * 1.5}rem)`,
+                  }}
                 />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Perit assignat */}
-      {expert && (
-        <Card className="border border-emerald-200 bg-emerald-50/50 shadow-sm">
-          <CardContent className="p-4 space-y-3">
-            <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
-              Perit assignat
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-sm flex-shrink-0">
-                {expert.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                {STATUS_FLOW.map((s, i) => {
+                  const done = i < currentStep;
+                  const active = i === currentStep;
+                  return (
+                    <div key={s} className="relative z-10 flex flex-col items-center gap-2" style={{ flex: 1 }}>
+                      <div className={cn(
+                        "w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center bg-white transition-all",
+                        done    ? "border-primary bg-primary"
+                        : active ? "border-primary"
+                                 : "border-slate-300"
+                      )}>
+                        {done && <CheckCircle2 className="w-3 h-3 text-white fill-white stroke-none" />}
+                        {active && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <span className={cn(
+                        "text-[9px] font-semibold text-center leading-tight max-w-[44px]",
+                        done || active ? "text-primary" : "text-slate-400"
+                      )}>
+                        {s}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-900">{expert.name}</p>
-                <p className="text-xs text-emerald-600">{expert.specialty} · {expert.zone}</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 border-t border-emerald-200 pt-3">
-              {expert.phone && (
-                <a href={`tel:${expert.phone}`} className="flex items-center gap-2 text-xs text-emerald-700 hover:text-emerald-900">
-                  <Phone className="h-3.5 w-3.5" /> {expert.phone}
-                </a>
-              )}
-              {expert.email && (
-                <a href={`mailto:${expert.email}`} className="flex items-center gap-2 text-xs text-emerald-700 hover:text-emerald-900">
-                  <Mail className="h-3.5 w-3.5" /> {expert.email}
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Documents del perit */}
-      {claim.documents.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-            <Paperclip className="h-3 w-3" /> Documents ({claim.documents.length})
-          </p>
-          <Card className="border border-border/60 shadow-sm bg-white">
-            <CardContent className="p-3 space-y-1.5">
-              {claim.documents.map((doc, idx) => (
-                <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/60 hover:bg-muted/20 transition-colors group">
-                  <Paperclip className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <span className="text-xs font-medium flex-1 truncate">{doc.name}</span>
-                  <Download className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-                </a>
-              ))}
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Xat */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
-          Comunicació amb el gestor
-        </p>
-        <Card className="border border-border/60 shadow-sm overflow-hidden bg-white">
-          <div className="h-[320px] flex flex-col">
-            <ChatPanel
-              claimId={claim.id}
-              senderRole="user"
-              initialMessages={claim.messages}
-            />
-          </div>
-        </Card>
-      </div>
+          {/* Informació del sinistre */}
+          <Card className="shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-border/50 bg-white">
+            <CardContent className="p-5 divide-y divide-slate-100">
+              <div className="flex items-center justify-between py-3 first:pt-0">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Data del sinistre
+                </span>
+                <span className="text-xs font-semibold text-foreground">
+                  {format(incidentDate, "d MMM yyyy 'a les' HH:mm", { locale: ca })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" /> Data declaració
+                </span>
+                <span className="text-xs font-semibold text-foreground">
+                  {format(claim.createdAt, 'd MMM yyyy', { locale: ca })}
+                </span>
+              </div>
+              {claim.location && (
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" /> Ubicació
+                  </span>
+                  <span className="text-xs font-mono text-foreground">
+                    {claim.location.lat.toFixed(4)}°N {claim.location.lng.toFixed(4)}°E
+                  </span>
+                </div>
+              )}
+              {claim.estimatedCost != null && (
+                <div className="flex items-center justify-between py-3">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Euro className="h-3.5 w-3.5" /> Estimació econòmica
+                  </span>
+                  <span className="text-sm font-bold text-primary">
+                    {claim.estimatedCost.toLocaleString('ca-ES')} €
+                  </span>
+                </div>
+              )}
+              {claim.description && (
+                <div className="pt-3 last:pb-0 space-y-1">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" /> Descripció
+                  </span>
+                  <p className="text-sm text-foreground leading-relaxed">{claim.description}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Fotos */}
+          {claim.photos.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <ImageIcon className="h-3 w-3" /> Fotografies ({claim.photos.length})
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {claim.photos.map((url, idx) => (
+                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                    <img
+                      src={url}
+                      alt={`Foto ${idx + 1}`}
+                      className="w-28 h-28 object-cover rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.12)] hover:opacity-90 transition-opacity"
+                      onError={showPhotoPlaceholder}
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Perit assignat */}
+          {expert && (
+            <Card className="shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-border/50 bg-white">
+              <CardContent className="p-5 space-y-4">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Perit assignat
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm shrink-0">
+                    {expert.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{expert.name}</p>
+                    <p className="text-xs text-muted-foreground">{expert.specialty} · {expert.zone}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 border-t border-slate-100 pt-4">
+                  {expert.phone && (
+                    <a href={`tel:${expert.phone}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors">
+                      <Phone className="h-3.5 w-3.5" /> Trucar
+                    </a>
+                  )}
+                  {expert.email && (
+                    <a href={`mailto:${expert.email}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors">
+                      <Mail className="h-3.5 w-3.5" /> Escriure
+                    </a>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Documents */}
+          {claim.documents.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <Paperclip className="h-3 w-3" /> Documents ({claim.documents.length})
+              </p>
+              <Card className="shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-border/50 bg-white">
+                <CardContent className="p-3 space-y-1">
+                  {claim.documents.map((doc, idx) => (
+                    <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors group">
+                      <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-medium flex-1 truncate">{doc.name}</span>
+                      <Download className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0" />
+                    </a>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+        </TabsContent>
+
+        {/* ── Pestanya Gestor ── */}
+        <TabsContent value="xat" className="mt-4">
+          <Card className="shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-border/50 overflow-hidden bg-white">
+            <div className="h-[calc(100dvh-240px)] flex flex-col">
+              <ChatPanel
+                claimId={claim.id}
+                senderRole="user"
+                initialMessages={claim.messages}
+              />
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

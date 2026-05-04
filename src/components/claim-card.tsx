@@ -6,12 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ClaimStatusBadge } from './claim-status-badge';
 import { Calendar, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 
 export function ClaimCard({ claim }: { claim: Claim }) {
+  const searchParams = useSearchParams();
+  const queryString = searchParams?.toString();
+  const claimHref = queryString ? `/claims/${claim.id}?${queryString}` : `/claims/${claim.id}`;
+
   return (
-    <Link href={`/claims/${claim.id}`}>
+    <Link href={claimHref}>
       <Card className="group overflow-hidden border border-border/60 shadow-sm hover:shadow-md transition-all active:scale-[0.99] bg-white">
         <CardContent className="p-0">
           <div className="flex">

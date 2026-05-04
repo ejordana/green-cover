@@ -6,10 +6,9 @@ export interface ClaimDocument {
   url: string;
 }
 
-export type ClaimStatus = 
-  | 'Declarat' 
-  | 'Gestor assignat' 
-  | 'Perit designat' 
+export type ClaimStatus =
+  | 'Declarat'
+  | 'Perit designat'
   | 'Informe rebut' 
   | 'Aprovat' 
   | 'Pagat' 
@@ -27,6 +26,7 @@ export interface Claim {
   number: string;
   type: ClaimType;
   status: ClaimStatus;
+  title: string;
   description: string;
   createdAt: Date;
   updatedAt: Date;
@@ -70,4 +70,12 @@ export interface Expert {
   email: string;
   rating: number;
   activeClaims: number;
+}
+
+export interface Admin {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  active: boolean;
 }

@@ -7,10 +7,11 @@ import type { Client } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Search, UserPlus, Mail, Phone, ExternalLink } from 'lucide-react';
+import { UserPlus, Mail, Phone, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
+import { PortalHeader } from '@/components/portal-header';
 
 export default function AdminClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -27,44 +28,19 @@ export default function AdminClientsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-primary p-4 text-white">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-7xl mx-auto w-full">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="hover:opacity-80 transition-opacity">
-              <Shield className="h-8 w-8 text-secondary" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold">GreenCover Back-office</h1>
-              <p className="text-xs text-white/70">Gestió de Clients - Roger Jordana</p>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            <nav className="flex gap-1 bg-white/10 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
-              <Link href="/admin">
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 text-xs">Sinistres</Button>
-              </Link>
-              <Link href="/admin/clients">
-                <Button variant="secondary" size="sm" className="bg-secondary text-white border-none h-8 text-xs">Clients</Button>
-              </Link>
-              <Link href="/admin/managers">
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 text-xs">Gestors</Button>
-              </Link>
-              <Link href="/admin/experts">
-                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 text-xs">Perits</Button>
-              </Link>
-            </nav>
-            <div className="relative w-full sm:w-48">
-              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-white/50" />
-              <Input 
-                placeholder="Cercar camp..." 
-                className="pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40 h-8 text-xs"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+      <PortalHeader
+        title="Back-office"
+        navItems={[
+          { label: 'Sinistres', href: '/admin', active: false },
+          { label: 'Clients', href: '/admin/clients', active: true },
+          { label: 'Gestors', href: '/admin/managers', active: false },
+          { label: 'Perits', href: '/admin/experts', active: false },
+          { label: 'Usuaris', href: '/admin/users', active: false },
+        ]}
+        userName="Roger Jordana"
+        userInitials="RJ"
+        userSubtitle="Administrador"
+      />
 
       <main className="p-4 md:p-6 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

@@ -34,19 +34,24 @@ export default function LandingPage() {
         </div>
 
         <div className="space-y-3 w-full">
-          <Link href="/dashboard" className="w-full block">
-            <Button className="w-full h-12 text-sm font-semibold rounded-xl bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/20 transition-all">
-              Accés Gerent <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Button>
-          </Link>
           <Link href="/admin" className="w-full block">
             <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/20 text-white/80 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all">
-              Back-office Gestors
+              Admin
+            </Button>
+          </Link>
+          <Link href="/gestor" className="w-full block">
+            <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/20 text-white/80 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all">
+              Gestor
+            </Button>
+          </Link>
+          <Link href="/dashboard?role=client" className="w-full block">
+            <Button className="w-full h-12 text-sm font-semibold rounded-xl bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/20 transition-all">
+              Client
             </Button>
           </Link>
           <Link href="/perit" className="w-full block">
             <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/10 text-white/50 bg-transparent hover:bg-white/5 backdrop-blur-sm transition-all">
-              Portal Perits
+              Perit
             </Button>
           </Link>
         </div>

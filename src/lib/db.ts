@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Claim, ChatMessage, Manager, Client, Expert, ClaimStatus, ClaimType, ClaimDocument } from './types'
+import type { Claim, ChatMessage, Manager, Client, Expert, Admin, ClaimStatus, ClaimType, ClaimDocument } from './types'
 
 function rowToClaim(row: any): Claim {
   return {
@@ -7,6 +7,7 @@ function rowToClaim(row: any): Claim {
     number: row.number,
     type: row.type as ClaimType,
     status: row.status as ClaimStatus,
+    title: row.title ?? '',
     description: row.description ?? '',
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -105,6 +106,16 @@ function rowToExpert(row: any): Expert {
   }
 }
 
+function rowToAdmin(row: any): Admin {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    active: row.active ?? true,
+  }
+}
+
 export async function getClaims(): Promise<Claim[]> {
   const { data, error } = await supabase
     .from('claims')
@@ -151,6 +162,165 @@ export async function getExperts(): Promise<Expert[]> {
   return (data ?? []).map(rowToExpert)
 }
 
+export async function getAdmins(): Promise<Admin[]> {
+  const { data, error } = await supabase
+    .from('admins')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return (data ?? []).map(rowToAdmin)
+}
+
+export async function createAdmin(input: {
+  name: string
+  email?: string
+  phone?: string
+  active?: boolean
+}): Promise<Admin> {
+  const { data, error } = await supabase
+    .from('admins')
+    .insert({
+      name: input.name,
+      email: input.email ?? '',
+      phone: input.phone ?? '',
+      active: input.active ?? true,
+    })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return rowToAdmin(data)
+}
+
+// User creation with authentication
+export async function createManagerWithAuth(input: {
+  name: string
+  email: string
+  password: string
+  phone?: string
+  available?: boolean
+}): Promise<Manager> {
+  const response = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      role: 'manager',
+      userData: {
+        name: input.name,
+        phone: input.phone,
+        available: input.available ?? true,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create manager');
+  }
+
+  const result = await response.json();
+  return rowToManager(result.user);
+}
+
+export async function createExpertWithAuth(input: {
+  name: string
+  email: string
+  password: string
+  specialty: string
+  zone: string
+  phone?: string
+}): Promise<Expert> {
+  const response = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      role: 'expert',
+      userData: {
+        name: input.name,
+        phone: input.phone,
+        specialty: input.specialty,
+        zone: input.zone,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create expert');
+  }
+
+  const result = await response.json();
+  return rowToExpert(result.user);
+}
+
+export async function createClientWithAuth(input: {
+  name: string
+  email: string
+  password: string
+  phone?: string
+  policyNumber?: string
+  status?: 'Actiu' | 'Inactiu' | 'Pendent'
+}): Promise<Client> {
+  const response = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      role: 'client',
+      userData: {
+        name: input.name,
+        phone: input.phone,
+        policyNumber: input.policyNumber,
+        status: input.status || 'Actiu',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create client');
+  }
+
+  const result = await response.json();
+  return rowToClient(result.user);
+}
+
+export async function createAdminWithAuth(input: {
+  name: string
+  email: string
+  password: string
+  phone?: string
+  active?: boolean
+}): Promise<Admin> {
+  const response = await fetch('/api/users/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: input.email,
+      password: input.password,
+      role: 'admin',
+      userData: {
+        name: input.name,
+        phone: input.phone,
+        active: input.active ?? true,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create admin');
+  }
+
+  const result = await response.json();
+  return rowToAdmin(result.user);
+}
+
 export async function getClaimById(id: string): Promise<Claim | null> {
   const { data, error } = await supabase
     .from('claims')
@@ -169,6 +339,29 @@ export async function sendMessage(
   const { data, error } = await supabase
     .from('chat_messages')
     .insert({ claim_id: claimId, sender, text })
+    .select()
+    .single()
+  if (error) throw error
+  return rowToMessage(data)
+}
+
+export async function getGeneralMessages(): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select()
+    .is('claim_id', null)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map(rowToMessage)
+}
+
+export async function sendGeneralMessage(
+  sender: 'user' | 'manager',
+  text: string
+): Promise<ChatMessage> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ claim_id: null, sender, text })
     .select()
     .single()
   if (error) throw error
@@ -302,8 +495,50 @@ export async function createExpert(input: {
   return rowToExpert(data)
 }
 
+export async function createClient(input: {
+  name: string
+  email?: string
+  phone?: string
+  policyNumber?: string
+  status?: 'Actiu' | 'Inactiu' | 'Pendent'
+}): Promise<Client> {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert({
+      name: input.name,
+      email: input.email ?? '',
+      phone: input.phone ?? '',
+      policy_number: input.policyNumber ?? '',
+      status: input.status ?? 'Actiu',
+    })
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return rowToClient(data)
+}
+
+export async function updateManagerAvailability(id: string, available: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('managers')
+    .update({ available })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export async function updateClientStatus(id: string, status: 'Actiu' | 'Inactiu' | 'Pendent'): Promise<void> {
+  const { error } = await supabase
+    .from('clients')
+    .update({ status })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 export async function createClaim(input: {
   type: ClaimType
+  title: string
   description: string
   photos: string[]
   incidentAt?: Date
@@ -315,6 +550,7 @@ export async function createClaim(input: {
     .from('claims')
     .insert({
       type: input.type,
+      title: input.title,
       description: input.description,
       photos: input.photos,
       incident_at: input.incidentAt?.toISOString() ?? null,

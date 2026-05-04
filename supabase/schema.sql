@@ -4,7 +4,9 @@
 -- Managers (gestors Green Cover)
 create table if not exists managers (
   id          uuid primary key default gen_random_uuid(),
+  auth_id     uuid unique references auth.users(id) on delete cascade,
   name        text not null,
+  email       text unique,
   photo_url   text,
   phone       text,
   available   boolean not null default true,
@@ -14,10 +16,11 @@ create table if not exists managers (
 -- Clients (camps de golf)
 create table if not exists clients (
   id            uuid primary key default gen_random_uuid(),
+  auth_id       uuid unique references auth.users(id) on delete cascade,
   name          text not null,
+  email         text unique,
   location      text,
   manager_name  text,
-  email         text,
   phone         text,
   policy_number text unique,
   status        text not null default 'Actiu',
@@ -29,14 +32,26 @@ create table if not exists clients (
 -- Perits externs
 create table if not exists experts (
   id            uuid primary key default gen_random_uuid(),
+  auth_id       uuid unique references auth.users(id) on delete cascade,
   name          text not null,
+  email         text unique,
   specialty     text,
   zone          text,
   phone         text,
-  email         text,
   rating        numeric(3,1) not null default 0,
   active_claims integer not null default 0,
   created_at    timestamptz not null default now()
+);
+
+-- Administradors de l'aplicació
+create table if not exists admins (
+  id          uuid primary key default gen_random_uuid(),
+  auth_id     uuid unique references auth.users(id) on delete cascade,
+  name        text not null,
+  email       text unique,
+  phone       text,
+  active      boolean not null default true,
+  created_at  timestamptz not null default now()
 );
 
 -- Sinistres
@@ -122,5 +137,5 @@ left join claims cl on cl.client_id = c.id
 group by c.id;
 
 -- Permisos per a la clau anònima (prototip sense RLS)
-grant select, insert, update, delete on managers, clients, experts, claims, chat_messages to anon, authenticated;
+grant select, insert, update, delete on managers, clients, experts, admins, claims, chat_messages to anon, authenticated;
 grant select on clients_with_stats to anon, authenticated;

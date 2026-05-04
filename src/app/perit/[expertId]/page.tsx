@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Shield, ArrowLeft, Camera, FileText, CheckCircle2, Clock,
+  ArrowLeft, Camera, FileText, CheckCircle2, Clock,
   X, ImageIcon, Send, Paperclip, Download, FileArchive,
 } from 'lucide-react';
+import { PortalHeader } from '@/components/portal-header';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
@@ -114,30 +115,13 @@ export default function PeritDashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-white border-b border-border/60 sticky top-0 z-50">
-        <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto w-full px-4 md:px-6 py-3">
-          <Link href="/perit" className="hover:opacity-80 transition-opacity flex items-center gap-2.5">
-            <div className="bg-primary p-2 rounded-xl">
-              <Shield className="h-4 w-4 text-emerald-300" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-primary leading-tight">GreenCover</h1>
-              <p className="text-[10px] text-muted-foreground font-medium leading-tight">Portal Perits</p>
-            </div>
-          </Link>
-          {expert && (
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                {expert.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-semibold leading-tight">{expert.name}</p>
-                <p className="text-[10px] text-muted-foreground">{expert.specialty}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+      <PortalHeader
+        title="Portal Perit"
+        logoHref="/perit"
+        userName={expert?.name ?? ''}
+        userInitials={expert ? expert.name.split(' ').map(n => n[0]).join('').slice(0, 2) : '??'}
+        userSubtitle={expert?.specialty}
+      />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Llista de sinistres */}
