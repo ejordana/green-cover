@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState } from 'react';
-import { mockExperts } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { getExperts } from '@/lib/db';
+import type { Expert } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +13,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
 export default function AdminExpertsPage() {
+  const [experts, setExperts] = useState<Expert[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredExperts = mockExperts.filter(expert => 
+  useEffect(() => {
+    getExperts().then(setExperts).catch(console.error);
+  }, []);
+
+  const filteredExperts = experts.filter(expert =>
     expert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     expert.specialty.toLowerCase().includes(searchTerm.toLowerCase())
   );

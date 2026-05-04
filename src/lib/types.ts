@@ -30,6 +30,8 @@ export interface Claim {
   photos: string[];
   messages: ChatMessage[];
   assignedExpertId?: string;
+  notes?: string;
+  incidentAt?: Date;
 }
 
 export interface Manager {

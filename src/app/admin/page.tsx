@@ -1,31 +1,55 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
-import { mockClaims, mockExperts } from '@/lib/mock-data';
+import { useState, useMemo, useEffect } from 'react';
+import { getClaims, getExperts, assignExpert, updateClaimStatus } from '@/lib/db';
+import { ChatPanel } from '@/components/chat-panel';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ClaimStatusBadge } from '@/components/claim-status-badge';
-import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock, UserCheck, Star, ArrowLeft, User } from 'lucide-react';
+import { Shield, Search, Filter, BrainCircuit, ExternalLink, Clock, UserCheck, Star, ArrowLeft, MessageSquare, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { aiClaimInitialAssessment } from '@/ai/flows/ai-claim-initial-assessment';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { ca } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Claim, Expert } from '@/lib/types';
+import { Claim, Expert, ClaimStatus } from '@/lib/types';
+
+const ALL_STATUSES: ClaimStatus[] = [
+  'Declarat', 'Gestor assignat', 'Perit designat',
+  'Informe rebut', 'Aprovat', 'Pagat', 'Tancat',
+];
 
 export default function AdminBackOffice() {
-  const [claims, setClaims] = useState<Claim[]>(mockClaims);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [experts, setExperts] = useState<Expert[]>([]);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [isExpertDialogOpen, setIsExpertDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState<ClaimStatus>('Declarat');
+  const [noteText, setNoteText] = useState('');
+  const [savingStatus, setSavingStatus] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    getClaims().then(setClaims).catch(console.error);
+    getExperts().then(setExperts).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (selectedClaim) {
+      setNewStatus(selectedClaim.status);
+      setNoteText(selectedClaim.notes ?? '');
+      setAssessment(null);
+    }
+  }, [selectedClaimId]);
 
   const selectedClaim = useMemo(() => 
     claims.find(c => c.id === selectedClaimId) || null,
@@ -34,8 +58,8 @@ export default function AdminBackOffice() {
 
   const assignedExpert = useMemo(() => {
     if (!selectedClaim?.assignedExpertId) return null;
-    return mockExperts.find(e => e.id === selectedClaim.assignedExpertId);
-  }, [selectedClaim]);
+    return experts.find(e => e.id === selectedClaim.assignedExpertId);
+  }, [selectedClaim, experts]);
 
   const handleAIAnalyze = async (claim: Claim) => {
     setLoading(true);
@@ -56,19 +80,22 @@ export default function AdminBackOffice() {
     }
   };
 
-  const handleAssignExpert = (expert: Expert) => {
+  const handleAssignExpert = async (expert: Expert) => {
     if (!selectedClaimId) return;
-
-    setClaims(prev => prev.map(c => 
-      c.id === selectedClaimId 
-        ? { ...c, assignedExpertId: expert.id, status: 'Perit designat' as const, updatedAt: new Date() } 
-        : c
-    ));
-
-    toast({
-      title: "Perit assignat",
-      description: `${expert.name} ha estat assignat al sinistre ${selectedClaim?.number}. L'estat ha canviat a 'Perit designat'.`,
-    });
+    try {
+      await assignExpert(selectedClaimId, expert.id);
+      setClaims(prev => prev.map(c =>
+        c.id === selectedClaimId
+          ? { ...c, assignedExpertId: expert.id, status: 'Perit designat' as const, updatedAt: new Date() }
+          : c
+      ));
+      toast({
+        title: "Perit assignat",
+        description: `${expert.name} ha estat assignat al sinistre ${selectedClaim?.number}. L'estat ha canviat a 'Perit designat'.`,
+      });
+    } catch {
+      toast({ title: "Error en l'assignació", variant: "destructive" });
+    }
     setIsExpertDialogOpen(false);
   };
 
@@ -158,120 +185,192 @@ export default function AdminBackOffice() {
         <div className={cn("lg:col-span-4", !selectedClaimId && "hidden lg:block")}>
           {selectedClaim ? (
             <Card className="border-none shadow-sm border-l-4 border-l-primary sticky top-6">
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-2">
                 <div className="flex items-center gap-2 mb-2 lg:hidden">
-                   <Button variant="ghost" size="sm" onClick={() => setSelectedClaimId(null)} className="h-8 px-2 -ml-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedClaimId(null)} className="h-8 px-2 -ml-2">
                     <ArrowLeft className="h-4 w-4 mr-1" /> Tornar
-                   </Button>
-                </div>
-                <CardTitle className="flex items-center justify-between text-base">
-                  Detall del Cas
-                  <span className="text-xs font-normal text-slate-500">{selectedClaim.number}</span>
-                </CardTitle>
-                <div className="mt-1">
-                  <ClaimStatusBadge status={selectedClaim.status} className="text-[10px] py-0" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descripció del Client</label>
-                  <p className="text-sm mt-1 leading-relaxed">{selectedClaim.description}</p>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 border border-orange-100 text-orange-800 text-[11px] font-bold">
-                  <Clock className="h-4 w-4 flex-shrink-0" /> SLA: Resten 14 hores per complir les 72h.
-                </div>
-
-                {assignedExpert && (
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 space-y-2">
-                    <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Perit Assignat</label>
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-[10px]">
-                        {assignedExpert.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-emerald-900">{assignedExpert.name}</span>
-                        <span className="text-[10px] text-emerald-600">{assignedExpert.specialty}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  <Button 
-                    className="w-full gap-2 bg-secondary hover:bg-secondary/90 h-10 text-xs font-bold" 
-                    onClick={() => handleAIAnalyze(selectedClaim)}
-                    disabled={loading}
-                  >
-                    <BrainCircuit className="h-4 w-4" /> 
-                    {loading ? 'Analitzant...' : 'Avaluació IA Inicial'}
                   </Button>
                 </div>
+                <CardTitle className="flex items-center justify-between text-base">
+                  {selectedClaim.number}
+                  <ClaimStatusBadge status={selectedClaim.status} className="text-[10px] py-0" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Tabs defaultValue="detail">
+                  <TabsList className="w-full rounded-none border-b h-9 bg-transparent px-4 justify-start gap-4">
+                    <TabsTrigger value="detail" className="text-xs h-9 px-0 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none">
+                      Detall
+                    </TabsTrigger>
+                    <TabsTrigger value="chat" className="text-xs h-9 px-0 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none gap-1.5">
+                      <MessageSquare className="h-3 w-3" />
+                      Chat
+                      {selectedClaim.messages.length > 0 && (
+                        <span className="bg-primary text-white rounded-full text-[9px] px-1.5 py-0 leading-4">
+                          {selectedClaim.messages.length}
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
 
-                {assessment && (
-                  <div className="p-4 rounded-xl bg-slate-900 text-slate-200 text-sm space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2 font-bold text-emerald-400">
-                      <BrainCircuit className="h-4 w-4" /> Resultat IA
-                    </div>
+                  <TabsContent value="detail" className="p-4 space-y-4 mt-0">
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Resum de Danys</p>
-                      <p className="text-xs leading-relaxed text-slate-300">{assessment.damageSummary}</p>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descripció del Client</label>
+                      <p className="text-sm mt-1 leading-relaxed">{selectedClaim.description}</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Categories Suggerides</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 text-[9px] px-2 py-0">{assessment.suggestedClaimCategory}</Badge>
-                        {assessment.keyEntities.map((ent: string, i: number) => (
-                          <Badge key={i} variant="outline" className="text-slate-400 border-slate-700 text-[9px] px-2 py-0">{ent}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
-                <div className="pt-4 border-t space-y-2">
-                  <Dialog open={isExpertDialogOpen} onOpenChange={setIsExpertDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full text-xs gap-2 h-10">
-                        <UserCheck className="h-3.5 w-3.5" /> 
-                        {assignedExpert ? 'Reassignar Perit' : 'Assignar Perit Extern'}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md w-[95vw] rounded-xl">
-                      <DialogHeader>
-                        <DialogTitle className="text-lg font-bold">Seleccionar Perit</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
-                        {mockExperts.map((expert) => (
-                          <div 
-                            key={expert.id} 
-                            className={cn(
-                              "p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center group",
-                              selectedClaim.assignedExpertId === expert.id && "border-emerald-500 bg-emerald-50/50"
-                            )}
-                            onClick={() => handleAssignExpert(expert)}
-                          >
-                            <div className="space-y-1">
-                              <p className="font-bold text-sm group-hover:text-primary">{expert.name}</p>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                <Badge variant="outline" className="text-[9px] py-0 px-1.5">{expert.specialty}</Badge>
-                                <span className="hidden sm:inline">{expert.zone}</span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                                <Star className="h-3 w-3 fill-amber-500" /> {expert.rating}
-                              </div>
-                              <p className="text-[10px] text-slate-400">{expert.activeClaims} casos</p>
-                            </div>
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 border border-orange-100 text-orange-800 text-[11px] font-bold">
+                      <Clock className="h-4 w-4 flex-shrink-0" /> SLA: Resten 14 hores per complir les 72h.
+                    </div>
+
+                    {assignedExpert && (
+                      <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 space-y-2">
+                        <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Perit Assignat</label>
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-[10px]">
+                            {assignedExpert.name.split(' ').map(n => n[0]).join('')}
                           </div>
-                        ))}
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-emerald-900">{assignedExpert.name}</span>
+                            <span className="text-[10px] text-emerald-600">{assignedExpert.specialty}</span>
+                          </div>
+                        </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <Button className="w-full text-xs h-10 font-bold">Actualitzar Estat</Button>
-                </div>
+                    )}
+
+                    <Button
+                      className="w-full gap-2 bg-secondary hover:bg-secondary/90 h-10 text-xs font-bold"
+                      onClick={() => handleAIAnalyze(selectedClaim)}
+                      disabled={loading}
+                    >
+                      <BrainCircuit className="h-4 w-4" />
+                      {loading ? 'Analitzant...' : 'Avaluació IA Inicial'}
+                    </Button>
+
+                    {assessment && (
+                      <div className="p-4 rounded-xl bg-slate-900 text-slate-200 text-sm space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2 font-bold text-emerald-400">
+                          <BrainCircuit className="h-4 w-4" /> Resultat IA
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Resum de Danys</p>
+                          <p className="text-xs leading-relaxed text-slate-300">{assessment.damageSummary}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Categories Suggerides</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 text-[9px] px-2 py-0">{assessment.suggestedClaimCategory}</Badge>
+                            {assessment.keyEntities.map((ent: string, i: number) => (
+                              <Badge key={i} variant="outline" className="text-slate-400 border-slate-700 text-[9px] px-2 py-0">{ent}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t space-y-2">
+                      <Dialog open={isExpertDialogOpen} onOpenChange={setIsExpertDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="w-full text-xs gap-2 h-10">
+                            <UserCheck className="h-3.5 w-3.5" />
+                            {assignedExpert ? 'Reassignar Perit' : 'Assignar Perit Extern'}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md w-[95vw] rounded-xl">
+                          <DialogHeader>
+                            <DialogTitle className="text-lg font-bold">Seleccionar Perit</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
+                            {experts.map((expert) => (
+                              <div
+                                key={expert.id}
+                                className={cn(
+                                  "p-3 border rounded-xl hover:bg-slate-50 cursor-pointer transition-colors flex justify-between items-center group",
+                                  selectedClaim.assignedExpertId === expert.id && "border-emerald-500 bg-emerald-50/50"
+                                )}
+                                onClick={() => handleAssignExpert(expert)}
+                              >
+                                <div className="space-y-1">
+                                  <p className="font-bold text-sm group-hover:text-primary">{expert.name}</p>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1.5">{expert.specialty}</Badge>
+                                    <span className="hidden sm:inline">{expert.zone}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                                    <Star className="h-3 w-3 fill-amber-500" /> {expert.rating}
+                                  </div>
+                                  <p className="text-[10px] text-slate-400">{expert.activeClaims} casos</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <div className="space-y-2 pt-2 border-t">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Actualitzar Estat
+                        </label>
+                        <Select value={newStatus} onValueChange={v => setNewStatus(v as ClaimStatus)}>
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ALL_STATUSES.map(s => (
+                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block pt-1">
+                          Notes Internes
+                          <span className="normal-case font-normal ml-1 text-slate-300">(no visibles al client)</span>
+                        </label>
+                        <Textarea
+                          value={noteText}
+                          onChange={e => setNoteText(e.target.value)}
+                          placeholder="Afegeix notes de gestió interna..."
+                          className="text-xs min-h-[72px] resize-none"
+                        />
+
+                        <Button
+                          className="w-full text-xs h-9 font-bold gap-2"
+                          onClick={async () => {
+                            if (!selectedClaimId) return;
+                            setSavingStatus(true);
+                            try {
+                              await updateClaimStatus(selectedClaimId, newStatus, noteText);
+                              setClaims(prev => prev.map(c =>
+                                c.id === selectedClaimId
+                                  ? { ...c, status: newStatus, notes: noteText, updatedAt: new Date() }
+                                  : c
+                              ));
+                              toast({ title: "Sinistre actualitzat correctament" });
+                            } catch {
+                              toast({ title: "Error en l'actualització", variant: "destructive" });
+                            } finally {
+                              setSavingStatus(false);
+                            }
+                          }}
+                          disabled={savingStatus}
+                        >
+                          <Save className="h-3.5 w-3.5" />
+                          {savingStatus ? 'Desant...' : 'Desar Canvis'}
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="chat" className="mt-0 h-[420px] flex flex-col">
+                    <ChatPanel
+                      claimId={selectedClaim.id}
+                      senderRole="manager"
+                      initialMessages={selectedClaim.messages}
+                    />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           ) : (

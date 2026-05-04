@@ -1,0 +1,178 @@
+import { supabase } from './supabase'
+import type { Claim, ChatMessage, Manager, Client, Expert, ClaimStatus, ClaimType } from './types'
+
+function rowToClaim(row: any): Claim {
+  return {
+    id: row.id,
+    number: row.number,
+    type: row.type as ClaimType,
+    status: row.status as ClaimStatus,
+    description: row.description ?? '',
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    estimatedCost: row.estimated_cost ?? undefined,
+    location: row.location_lat != null
+      ? { lat: row.location_lat, lng: row.location_lng }
+      : undefined,
+    photos: row.photos ?? [],
+    messages: (row.chat_messages ?? []).map(rowToMessage),
+    assignedExpertId: row.assigned_expert_id ?? undefined,
+    notes: row.notes ?? undefined,
+    incidentAt: row.incident_at ? new Date(row.incident_at) : undefined,
+  }
+}
+
+function rowToMessage(row: any): ChatMessage {
+  return {
+    id: row.id,
+    sender: row.sender,
+    text: row.text,
+    timestamp: new Date(row.created_at),
+  }
+}
+
+function rowToManager(row: any): Manager {
+  return {
+    id: row.id,
+    name: row.name,
+    photoUrl: row.photo_url ?? '',
+    phone: row.phone ?? '',
+    available: row.available ?? true,
+  }
+}
+
+function rowToClient(row: any): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    location: row.location ?? '',
+    managerName: row.manager_name ?? '',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    policyNumber: row.policy_number ?? '',
+    activeClaimsCount: Number(row.active_claims_count ?? 0),
+    status: row.status as 'Actiu' | 'Inactiu' | 'Pendent',
+  }
+}
+
+function rowToExpert(row: any): Expert {
+  return {
+    id: row.id,
+    name: row.name,
+    specialty: row.specialty ?? '',
+    zone: row.zone ?? '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    rating: Number(row.rating ?? 0),
+    activeClaims: Number(row.active_claims ?? 0),
+  }
+}
+
+export async function getClaims(): Promise<Claim[]> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('*, chat_messages(*)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(rowToClaim)
+}
+
+export async function getManager(): Promise<Manager | null> {
+  const { data, error } = await supabase
+    .from('managers')
+    .select('*')
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToManager(data)
+}
+
+export async function getClients(): Promise<Client[]> {
+  const { data, error } = await supabase
+    .from('clients_with_stats')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return (data ?? []).map(rowToClient)
+}
+
+export async function getExperts(): Promise<Expert[]> {
+  const { data, error } = await supabase
+    .from('experts')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  return (data ?? []).map(rowToExpert)
+}
+
+export async function getClaimById(id: string): Promise<Claim | null> {
+  const { data, error } = await supabase
+    .from('claims')
+    .select('*, chat_messages(*)')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToClaim(data)
+}
+
+export async function sendMessage(
+  claimId: string,
+  sender: 'user' | 'manager',
+  text: string
+): Promise<ChatMessage> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ claim_id: claimId, sender, text })
+    .select()
+    .single()
+  if (error) throw error
+  return rowToMessage(data)
+}
+
+export async function updateClaimStatus(
+  claimId: string,
+  status: ClaimStatus,
+  notes?: string
+): Promise<void> {
+  const payload: Record<string, unknown> = { status }
+  if (notes !== undefined) payload.notes = notes
+  const { error } = await supabase
+    .from('claims')
+    .update(payload)
+    .eq('id', claimId)
+  if (error) throw error
+}
+
+export async function assignExpert(claimId: string, expertId: string): Promise<void> {
+  const { error } = await supabase
+    .from('claims')
+    .update({ assigned_expert_id: expertId, status: 'Perit designat' })
+    .eq('id', claimId)
+  if (error) throw error
+}
+
+export async function createClaim(input: {
+  type: ClaimType
+  description: string
+  photos: string[]
+  incidentAt?: Date
+  clientId?: string
+  locationLat?: number
+  locationLng?: number
+}): Promise<Claim> {
+  const { data, error } = await supabase
+    .from('claims')
+    .insert({
+      type: input.type,
+      description: input.description,
+      photos: input.photos,
+      incident_at: input.incidentAt?.toISOString() ?? null,
+      client_id: input.clientId ?? null,
+      location_lat: input.locationLat ?? null,
+      location_lng: input.locationLng ?? null,
+    })
+    .select('*, chat_messages(*)')
+    .single()
+  if (error) throw error
+  return rowToClaim(data)
+}

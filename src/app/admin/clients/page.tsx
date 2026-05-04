@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState } from 'react';
-import { mockClients } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { getClients } from '@/lib/db';
+import type { Client } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +13,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
 export default function AdminClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredClients = mockClients.filter(client => 
+  useEffect(() => {
+    getClients().then(setClients).catch(console.error);
+  }, []);
+
+  const filteredClients = clients.filter(client =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.managerName.toLowerCase().includes(searchTerm.toLowerCase())
   );

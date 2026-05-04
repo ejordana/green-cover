@@ -1,7 +1,9 @@
 
 "use client";
 
-import { mockClaims } from '@/lib/mock-data';
+import { useEffect, useState } from 'react';
+import { getClaims } from '@/lib/db';
+import type { Claim } from '@/lib/types';
 import { ClaimCard } from '@/components/claim-card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, ArrowRight } from 'lucide-react';
@@ -9,7 +11,13 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function DashboardPage() {
-  const activeClaims = mockClaims.filter(c => c.status !== 'Tancat');
+  const [claims, setClaims] = useState<Claim[]>([]);
+
+  useEffect(() => {
+    getClaims().then(setClaims).catch(console.error);
+  }, []);
+
+  const activeClaims = claims.filter(c => c.status !== 'Tancat');
 
   return (
     <div className="space-y-6">

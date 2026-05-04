@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ClaimType } from '@/lib/types';
+import { createClaim } from '@/lib/db';
 import { Camera, MapPin, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -27,15 +28,28 @@ export default function NewClaimPage() {
   const [selectedType, setSelectedType] = useState<ClaimType | null>(null);
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [incidentAt, setIncidentAt] = useState(() =>
+    new Date().toISOString().slice(0, 16)
+  );
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleComplete = () => {
-    toast({
-      title: "Sinistre declarat correctament",
-      description: "T'hem enviat una confirmació al correu electrònic.",
-    });
-    router.push('/dashboard');
+  const handleComplete = async () => {
+    if (!selectedType) return;
+    try {
+      await createClaim({ type: selectedType, description, photos, incidentAt: new Date(incidentAt) });
+      toast({
+        title: "Sinistre declarat correctament",
+        description: "El teu gestor obrirà el cas en menys de 2 hores.",
+      });
+      router.push('/dashboard');
+    } catch {
+      toast({
+        title: "Error en la declaració",
+        description: "No s'ha pogut registrar el sinistre. Torna-ho a intentar.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -104,6 +118,17 @@ export default function NewClaimPage() {
               {/* Dummy photos */}
               <div className="w-24 h-24 bg-muted rounded-xl flex-shrink-0 animate-pulse" />
               <div className="w-24 h-24 bg-muted rounded-xl flex-shrink-0 animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-bold">Data i hora del sinistre</Label>
+              <input
+                type="datetime-local"
+                value={incidentAt}
+                max={new Date().toISOString().slice(0, 16)}
+                onChange={e => setIncidentAt(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              />
             </div>
 
             <div className="space-y-2">

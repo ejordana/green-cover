@@ -1,8 +1,10 @@
 
 "use client";
 
+import { useEffect, useState } from 'react';
 import { ManagerContactCard } from '@/components/manager-contact-card';
-import { mockManager } from '@/lib/mock-data';
+import { getManager } from '@/lib/db';
+import type { Manager } from '@/lib/types';
 import { LayoutDashboard, FileText, Shield, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -10,6 +12,11 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [manager, setManager] = useState<Manager | null>(null);
+
+  useEffect(() => {
+    getManager().then(setManager).catch(console.error);
+  }, []);
 
   const navItems = [
     { label: 'Inici', href: '/dashboard', icon: LayoutDashboard },
@@ -25,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="text-xl font-bold text-primary">GreenCover</h1>
           <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
         </div>
-        <ManagerContactCard manager={mockManager} />
+        {manager && <ManagerContactCard manager={manager} />}
       </header>
 
       <main className="flex-1 p-4 overflow-y-auto">
