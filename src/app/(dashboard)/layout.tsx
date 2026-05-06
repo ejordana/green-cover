@@ -17,7 +17,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const isWideClientDesktop = searchParams?.get('role') === 'client' && searchParams?.get('channel') === 'desktop';
   const queryString = searchParams?.toString();
   const addQueryToHref = (href: string) => queryString ? `${href}?${queryString}` : href;
   const [manager, setManager] = useState<Manager | null>(null);
@@ -34,10 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className={cn(
-      'min-h-screen flex flex-col mx-auto bg-slate-50 pb-24 shadow-xl shadow-black/5',
-      isWideClientDesktop ? 'max-w-7xl' : 'max-w-md'
-    )}>
+    <div className="min-h-screen flex flex-col mx-auto bg-slate-50 pb-24 shadow-xl shadow-black/5 max-w-7xl">
       <PortalHeader
         title="Portal Client"
         navItems={[
@@ -103,10 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Sheet>
       )}
 
-      <nav className={cn(
-        'fixed bottom-0 w-full bg-white border-t border-border/60 flex justify-around px-2 pt-2 pb-3 z-50 mx-auto',
-        isWideClientDesktop ? 'max-w-7xl' : 'max-w-md'
-      )}>
+      <nav className="fixed bottom-0 w-full max-w-7xl bg-white border-t border-border/60 flex justify-around px-2 pt-2 pb-3 z-50 mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
