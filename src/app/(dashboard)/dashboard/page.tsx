@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getClaims } from '@/lib/db';
 import type { Claim } from '@/lib/types';
@@ -11,7 +10,7 @@ import { PlusCircle, ArrowRight, Timer, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const searchParams = useSearchParams();
   const role = searchParams?.get('role');
   const queryString = searchParams?.toString();
@@ -27,8 +26,8 @@ export default function DashboardPage() {
   const subtitle = role === 'gestor'
     ? 'Gestiona sinistres, contacta amb l\u2019equip i revisa l\u2019historial de casos.'
     : isClient
-      ? 'Consulta el teu historial, declara sinistres i mantén el contacte amb el teu gestor.'
-      : 'Accedeix al tauler de GreenCover per gestionar sinistres i pòlisses.';
+      ? 'Consulta el teu historial, declara sinistres i mant\u00e9n el contacte amb el teu gestor.'
+      : 'Accedeix al tauler de GreenCover per gestionar sinistres i p\u00f2lisses.';
 
   const [claims, setClaims] = useState<Claim[]>([]);
 
@@ -58,7 +57,7 @@ export default function DashboardPage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">SLA</span>
             </div>
             <p className="text-2xl font-bold text-primary leading-none mb-1">72h</p>
-            <p className="text-[10px] text-muted-foreground">Compromís Green Cover</p>
+            <p className="text-[10px] text-muted-foreground">Comp\u0072om\u00eds Green Cover</p>
           </CardContent>
         </Card>
 
@@ -68,7 +67,7 @@ export default function DashboardPage() {
               <div className="bg-emerald-500/10 p-1.5 rounded-lg">
                 <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
               </div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Pòlissa</span>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">P\u00f2lissa</span>
             </div>
             <p className="text-base font-bold text-primary leading-tight truncate">Real Club Golf</p>
             <p className="text-[10px] text-muted-foreground">Venciment: 12/2026</p>
@@ -113,5 +112,13 @@ export default function DashboardPage() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   );
 }
