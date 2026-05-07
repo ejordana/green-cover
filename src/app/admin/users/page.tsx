@@ -1,58 +1,105 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { getAdmins, getClients, getExperts, getManagers, createManagerWithAuth, createClientWithAuth, createExpertWithAuth, createAdminWithAuth, updateClientStatus, updateManagerAvailability } from '@/lib/db';
+import {
+  getAdmins, getClients, getExperts, getManagers,
+  createManagerWithAuth, createClientWithAuth, createExpertWithAuth, createAdminWithAuth,
+  updateManager, updateExpert, updateClient, updateAdmin, deleteUser,
+} from '@/lib/db';
 import type { Admin, Client, Expert, Manager } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { PortalHeader } from '@/components/portal-header';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const ROLE_OPTIONS = ['Tots', 'Gestor', 'Perit', 'Client', 'Admin'] as const;
+// ── Types ────────────────────────────────────────────────────────────────────
 
-type UserRole = (typeof ROLE_OPTIONS)[number];
+type AppRole = 'Gestor' | 'Perit' | 'Client' | 'Admin';
+type FilterRole = 'Tots' | AppRole;
+type Entity = Manager | Expert | Client | Admin;
 
-type AppUser = {
+interface AppUser {
   id: string;
   name: string;
-  role: 'Gestor' | 'Perit' | 'Client' | 'Admin';
-  contact: string;
+  role: AppRole;
   email: string;
   phone: string;
   extra: string;
   status: string;
-  badge: 'secondary' | 'outline';
-};
+  entity: Entity;
+}
+
+// ── Form state ───────────────────────────────────────────────────────────────
+
+interface FormState {
+  role: AppRole;
+  name: string;
+  email: string;
+  phone: string;
+  specialty: string;
+  zone: string;
+  policyNumber: string;
+  status: 'Actiu' | 'Inactiu' | 'Pendent';
+  available: boolean;
+  rating: string;
+  password: string;
+  confirmPassword: string;
+}
+
+const emptyForm = (): FormState => ({
+  role: 'Gestor', name: '', email: '', phone: '',
+  specialty: '', zone: '', policyNumber: '',
+  status: 'Actiu', available: true, rating: '4.5',
+  password: '', confirmPassword: '',
+});
+
+function formFromEntity(role: AppRole, entity: Entity): FormState {
+  const base = emptyForm();
+  base.role = role;
+  base.name = entity.name;
+  if ('phone' in entity) base.phone = entity.phone ?? '';
+  if ('email' in entity) base.email = (entity as any).email ?? '';
+  if ('available' in entity) base.available = (entity as Manager).available;
+  if ('specialty' in entity) base.specialty = (entity as Expert).specialty;
+  if ('zone' in entity) base.zone = (entity as Expert).zone;
+  if ('rating' in entity) base.rating = String((entity as Expert).rating);
+  if ('policyNumber' in entity) base.policyNumber = (entity as Client).policyNumber;
+  if ('status' in entity && typeof (entity as Client).status === 'string') {
+    base.status = (entity as Client).status as 'Actiu' | 'Inactiu' | 'Pendent';
+  }
+  return base;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [managers, setManagers] = useState<Manager[]>([]);
-  const [experts, setExperts] = useState<Expert[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState<UserRole>('Tots');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newRole, setNewRole] = useState<'Gestor' | 'Perit' | 'Client' | 'Admin'>('Gestor');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [specialty, setSpecialty] = useState('');
-  const [zone, setZone] = useState('');
-  const [policyNumber, setPolicyNumber] = useState('');
-  const [status, setStatus] = useState<'Actiu' | 'Inactiu' | 'Pendent'>('Actiu');
-  const [available, setAvailable] = useState(true);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  const [admins,   setAdmins]   = useState<Admin[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [experts,  setExperts]  = useState<Expert[]>([]);
+  const [clients,  setClients]  = useState<Client[]>([]);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState<FilterRole>('Tots');
+
+  // Dialog state
+  const [dialogOpen,   setDialogOpen]   = useState(false);
+  const [editingId,    setEditingId]    = useState<string | null>(null);
+  const [form,         setForm]         = useState<FormState>(emptyForm());
+  const [isSaving,     setIsSaving]     = useState(false);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [isDeleting,   setIsDeleting]   = useState(false);
 
   useEffect(() => {
     getAdmins().then(setAdmins).catch(console.error);
@@ -61,375 +108,398 @@ export default function AdminUsersPage() {
     getClients().then(setClients).catch(console.error);
   }, []);
 
-  const users = useMemo<AppUser[]>(() => {
-    const managerUsers = managers.map((manager) => ({
-      id: manager.id,
-      name: manager.name,
-      role: 'Gestor' as const,
-      contact: manager.phone || '—',
-      email: '',
-      phone: manager.phone,
-      extra: manager.available ? 'Disponible' : 'No disponible',
-      status: manager.available ? 'Disponible' : 'No disponible',
-      badge: 'secondary' as const,
-    }));
-
-    const expertUsers = experts.map((expert) => ({
-      id: expert.id,
-      name: expert.name,
-      role: 'Perit' as const,
-      contact: expert.email || expert.phone || '—',
-      email: expert.email,
-      phone: expert.phone,
-      extra: `${expert.specialty} · ${expert.zone}`,
-      status: `Ràting ${expert.rating.toFixed(1)}`,
-      badge: 'outline' as const,
-    }));
-
-    const adminUsers = admins.map((admin) => ({
-      id: admin.id,
-      name: admin.name,
-      role: 'Admin' as const,
-      contact: admin.email || admin.phone || '—',
-      email: admin.email,
-      phone: admin.phone,
+  const users = useMemo<AppUser[]>(() => [
+    ...admins.map(e => ({
+      id: e.id, name: e.name, role: 'Admin' as const,
+      email: e.email, phone: e.phone,
       extra: 'Administrador de sistema',
-      status: admin.active ? 'Actiu' : 'Inactiu',
-      badge: admin.active ? 'secondary' : 'outline',
-    }));
+      status: e.active ? 'Actiu' : 'Inactiu',
+      entity: e,
+    })),
+    ...managers.map(e => ({
+      id: e.id, name: e.name, role: 'Gestor' as const,
+      email: '', phone: e.phone,
+      extra: e.available ? 'Disponible' : 'No disponible',
+      status: e.available ? 'Disponible' : 'No disponible',
+      entity: e,
+    })),
+    ...experts.map(e => ({
+      id: e.id, name: e.name, role: 'Perit' as const,
+      email: e.email, phone: e.phone,
+      extra: `${e.specialty} · ${e.zone}`,
+      status: `Ràting ${e.rating.toFixed(1)}`,
+      entity: e,
+    })),
+    ...clients.map(e => ({
+      id: e.id, name: e.name, role: 'Client' as const,
+      email: e.email, phone: e.phone,
+      extra: `Pòlissa ${e.policyNumber}`,
+      status: e.status,
+      entity: e,
+    })),
+  ], [admins, managers, experts, clients]);
 
-    const clientUsers = clients.map((client) => ({
-      id: client.id,
-      name: client.name,
-      role: 'Client' as const,
-      contact: client.email || client.phone || '—',
-      email: client.email,
-      phone: client.phone,
-      extra: `Pòlissa ${client.policyNumber}`,
-      status: client.status,
-      badge: client.status === 'Actiu' ? 'secondary' : 'outline',
-    }));
-
-    return [...adminUsers, ...managerUsers, ...expertUsers, ...clientUsers] as AppUser[];
-  }, [managers, experts, clients]);
-
-  const filteredUsers = users.filter((user) => {
-    if (filterRole !== 'Tots' && user.role !== filterRole) return false;
+  const filtered = users.filter(u => {
+    if (filterRole !== 'Tots' && u.role !== filterRole) return false;
     if (!searchTerm.trim()) return true;
-    const needle = searchTerm.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(needle) ||
-      user.role.toLowerCase().includes(needle) ||
-      user.contact.toLowerCase().includes(needle) ||
-      user.extra.toLowerCase().includes(needle) ||
-      user.status.toLowerCase().includes(needle)
-    );
+    const q = searchTerm.toLowerCase();
+    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q);
   });
 
-  const resetForm = () => {
-    setNewRole('Gestor');
-    setName('');
-    setEmail('');
-    setPhone('');
-    setSpecialty('');
-    setZone('');
-    setPolicyNumber('');
-    setPassword('');
-    setConfirmPassword('');
-    setStatus('Actiu');
-    setAvailable(true);
+  // ── Helpers ──
+
+  const field = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [key]: e.target.value }));
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm());
+    setDialogOpen(true);
   };
 
-  const handleCreateUser = async () => {
-    if (!name.trim()) {
-      toast({ title: 'Falta informació', description: 'Introdueix el nom de l’usuari.', variant: 'destructive' });
+  const openEdit = (user: AppUser) => {
+    setEditingId(user.id);
+    setForm(formFromEntity(user.role, user.entity));
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => { setDialogOpen(false); setEditingId(null); };
+
+  // ── Save (create or edit) ──
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast({ title: 'Falta el nom', variant: 'destructive' });
+      return;
+    }
+    if (!editingId && (!form.email.trim() || !form.password)) {
+      toast({ title: 'Falta email o contrasenya', variant: 'destructive' });
+      return;
+    }
+    if (!editingId && form.password !== form.confirmPassword) {
+      toast({ title: 'Les contrasenyes no coincideixen', variant: 'destructive' });
       return;
     }
 
     setIsSaving(true);
     try {
-      if (newRole === 'Gestor') {
-        const manager = await createManagerWithAuth({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-          phone: phone.trim(),
-          available,
-        });
-        setManagers((current) => [manager, ...current]);
-        toast({ title: 'Gestor creat', description: `${manager.name} ja pot gestionar sinistres.` });
+      if (editingId) {
+        await handleUpdate(editingId, form);
+      } else {
+        await handleCreate(form);
       }
-
-      if (newRole === 'Perit') {
-        const expert = await createExpertWithAuth({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-          specialty: specialty.trim(),
-          zone: zone.trim(),
-          phone: phone.trim(),
-        });
-        setExperts((current) => [expert, ...current]);
-        toast({ title: 'Perit creat', description: `${expert.name} s'ha afegit a la xarxa de perits.` });
-      }
-
-      if (newRole === 'Client') {
-        const client = await createClientWithAuth({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-          phone: phone.trim(),
-          policyNumber: policyNumber.trim(),
-          status,
-        });
-        setClients((current) => [client, ...current]);
-        toast({ title: 'Client creat', description: `${client.name} ja està disponible a la cartera.` });
-      }
-
-      if (newRole === 'Admin') {
-        const admin = await createAdminWithAuth({
-          name: name.trim(),
-          email: email.trim(),
-          password,
-          phone: phone.trim(),
-          active: available,
-        });
-        setAdmins((current) => [admin, ...current]);
-        toast({ title: 'Administrador creat', description: `${admin.name} ja pot accedir a l’aplicació.` });
-      }
-
-      setIsDialogOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'No s’ha pogut crear l’usuari.', variant: 'destructive' });
+      closeDialog();
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Error desconegut', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleToggleAvailability = async (id: string, value: boolean) => {
-    try {
-      await updateManagerAvailability(id, value);
-      setManagers((current) => current.map((manager) =>
-        manager.id === id ? { ...manager, available: value } : manager
-      ));
-      toast({ title: 'Estat actualitzat', description: `Disponibilitat del gestor actualitzada.` });
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'No s’ha pogut actualitzar la disponibilitat.', variant: 'destructive' });
+  const handleCreate = async (f: FormState) => {
+    if (f.role === 'Gestor') {
+      const m = await createManagerWithAuth({ name: f.name, email: f.email, password: f.password, phone: f.phone, available: f.available });
+      setManagers(p => [m, ...p]);
+      toast({ title: 'Gestor creat' });
+    } else if (f.role === 'Perit') {
+      const e = await createExpertWithAuth({ name: f.name, email: f.email, password: f.password, specialty: f.specialty, zone: f.zone, phone: f.phone });
+      setExperts(p => [e, ...p]);
+      toast({ title: 'Perit creat' });
+    } else if (f.role === 'Client') {
+      const c = await createClientWithAuth({ name: f.name, email: f.email, password: f.password, phone: f.phone, policyNumber: f.policyNumber, status: f.status });
+      setClients(p => [c, ...p]);
+      toast({ title: 'Client creat' });
+    } else {
+      const a = await createAdminWithAuth({ name: f.name, email: f.email, password: f.password, phone: f.phone, active: f.available });
+      setAdmins(p => [a, ...p]);
+      toast({ title: 'Admin creat' });
     }
   };
 
-  const handleClientStatusChange = async (id: string, value: 'Actiu' | 'Inactiu' | 'Pendent') => {
+  const handleUpdate = async (id: string, f: FormState) => {
+    if (f.role === 'Gestor') {
+      const m = await updateManager(id, { name: f.name, phone: f.phone, available: f.available });
+      setManagers(p => p.map(x => x.id === id ? m : x));
+    } else if (f.role === 'Perit') {
+      const e = await updateExpert(id, { name: f.name, phone: f.phone, email: f.email, specialty: f.specialty, zone: f.zone, rating: Number(f.rating) || 0 });
+      setExperts(p => p.map(x => x.id === id ? e : x));
+    } else if (f.role === 'Client') {
+      const c = await updateClient(id, { name: f.name, phone: f.phone, email: f.email, policy_number: f.policyNumber, status: f.status });
+      setClients(p => p.map(x => x.id === id ? c : x));
+    } else {
+      const a = await updateAdmin(id, { name: f.name, phone: f.phone, email: f.email, active: f.available });
+      setAdmins(p => p.map(x => x.id === id ? a : x));
+    }
+    toast({ title: 'Usuari actualitzat' });
+  };
+
+  // ── Delete ──
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await updateClientStatus(id, value);
-      setClients((current) => current.map((client) =>
-        client.id === id ? { ...client, status: value } : client
-      ));
-      toast({ title: 'Estat actualitzat', description: `Estat del client actualitzat a ${value}.` });
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'No s’ha pogut actualitzar l’estat del client.', variant: 'destructive' });
+      const roleMap: Record<AppRole, 'manager' | 'expert' | 'client' | 'admin'> = {
+        Gestor: 'manager', Perit: 'expert', Client: 'client', Admin: 'admin',
+      };
+      await deleteUser(deleteTarget.id, roleMap[deleteTarget.role]);
+      if (deleteTarget.role === 'Gestor') setManagers(p => p.filter(x => x.id !== deleteTarget.id));
+      if (deleteTarget.role === 'Perit')  setExperts(p  => p.filter(x => x.id !== deleteTarget.id));
+      if (deleteTarget.role === 'Client') setClients(p  => p.filter(x => x.id !== deleteTarget.id));
+      if (deleteTarget.role === 'Admin')  setAdmins(p   => p.filter(x => x.id !== deleteTarget.id));
+      toast({ title: `${deleteTarget.name} eliminat` });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({ title: 'Error eliminant', description: err instanceof Error ? err.message : '', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  const isEditing = editingId !== null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <PortalHeader
-        title="Back-office"
-        navItems={[
-          { label: 'Sinistres', href: '/admin', active: false },
-          { label: 'Clients', href: '/admin/clients', active: false },
-          { label: 'Gestors', href: '/admin/managers', active: false },
-          { label: 'Perits', href: '/admin/experts', active: false },
-          { label: 'Usuaris', href: '/admin/users', active: true },
-        ]}
-        userName="Roger Jordana"
-        userInitials="RJ"
-        userSubtitle="Administrador"
-      />
-
-      <main className="p-4 md:p-6 max-w-7xl mx-auto w-full">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800">Usuaris de l’aplicació</h2>
-            <p className="text-sm text-slate-500">Gestiona els perfils de gestors, perits i clients des d’un sol lloc.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(160px,1fr)_auto] w-full lg:w-auto">
-            <Input
-              placeholder="Cerca per nom, rol o estat"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-10"
-            />
-            <div className="flex items-center gap-2">
-              <Select value={filterRole} onValueChange={(value) => setFilterRole(value as UserRole)}>
-                <SelectTrigger className="h-10 min-w-[130px]">
-                  <SelectValue placeholder="Rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((role) => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              if (!open) resetForm();
-              setIsDialogOpen(open);
-            }}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 h-10 w-full sm:w-auto">
-                  <UserPlus className="h-4 w-4" /> Nou usuari
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-xl w-[95vw] rounded-xl">
-                <DialogHeader>
-                  <DialogTitle className="text-base font-semibold">Nou usuari</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div>
-                    <Label className="text-sm font-medium">Rol</Label>
-                    <Select value={newRole} onValueChange={(value) => setNewRole(value as 'Gestor' | 'Perit' | 'Client' | 'Admin')}>
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Gestor">Gestor</SelectItem>
-                        <SelectItem value="Perit">Perit</SelectItem>
-                        <SelectItem value="Client">Client</SelectItem>
-                        <SelectItem value="Admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="user-name" className="text-sm font-medium">Nom</Label>
-                      <Input id="user-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom complet" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="user-phone" className="text-sm font-medium">Telèfon</Label>
-                      <Input id="user-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telèfon" />
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="user-email" className="text-sm font-medium">Email</Label>
-                      <Input id="user-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" />
-                    </div>
-                    {newRole === 'Client' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="policy-number" className="text-sm font-medium">Pòlissa</Label>
-                        <Input id="policy-number" value={policyNumber} onChange={(e) => setPolicyNumber(e.target.value)} placeholder="Número de pòlissa" />
-                      </div>
-                    )}
-                  </div>
-                  {newRole === 'Perit' && (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="specialty" className="text-sm font-medium">Especialitat</Label>
-                        <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Especialitat" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="zone" className="text-sm font-medium">Zona</Label>
-                        <Input id="zone" value={zone} onChange={(e) => setZone(e.target.value)} placeholder="Zona d’actuació" />
-                      </div>
-                    </div>
-                  )}                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="password" className="text-sm font-medium">Contrasenya</Label>
-                      <Input id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contrasenya" type="password" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password" className="text-sm font-medium">Confirma contrasenya</Label>
-                      <Input id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirma contrasenya" type="password" required />
-                    </div>
-                  </div>                  {(newRole === 'Gestor' || newRole === 'Admin') && (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-slate-50 p-3">
-                      <div>
-                        <p className="text-sm font-medium">Actiu</p>
-                        <p className="text-xs text-slate-500">
-                          {newRole === 'Gestor'
-                            ? 'Activa el gestor perquè pugui rebre nous casos.'
-                            : 'Marca l’administrador com a actiu per fer-lo visible al sistema.'}
-                        </p>
-                      </div>
-                      <Switch checked={available} onCheckedChange={(checked) => setAvailable(Boolean(checked))} />
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-10">Cancel·lar</Button>
-                    <Button onClick={handleCreateUser} disabled={isSaving} className="h-10">
-                      {isSaving ? 'Guardant...' : 'Crear usuari'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+    <div>
+      {/* Capçalera */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Usuaris de l&apos;aplicació</h2>
+          <p className="text-sm text-slate-500">Gestiona gestors, perits, clients i admins.</p>
         </div>
+        <Button className="gap-2 h-10 w-full sm:w-auto" onClick={openCreate}>
+          <UserPlus className="h-4 w-4" /> Nou usuari
+        </Button>
+      </div>
 
-        <Card className="border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] rounded-2xl overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead className="text-xs uppercase">Usuari</TableHead>
-                    <TableHead className="text-xs uppercase hidden sm:table-cell">Rol</TableHead>
-                    <TableHead className="text-xs uppercase hidden md:table-cell">Contacte</TableHead>
-                    <TableHead className="text-xs uppercase">Detall</TableHead>
-                    <TableHead className="text-xs uppercase">Estat</TableHead>
-                    <TableHead className="text-right"></TableHead>
+      {/* Filtres */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca per nom, email o rol..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+        <Select value={filterRole} onValueChange={v => setFilterRole(v as FilterRole)}>
+          <SelectTrigger className="h-10 w-full sm:w-[160px]">
+            <SelectValue placeholder="Rol" />
+          </SelectTrigger>
+          <SelectContent>
+            {(['Tots', 'Gestor', 'Perit', 'Client', 'Admin'] as const).map(r => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Taula */}
+      <Card className="border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] rounded-2xl overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/50">
+                  <TableHead className="text-xs uppercase">Nom</TableHead>
+                  <TableHead className="text-xs uppercase">Rol</TableHead>
+                  <TableHead className="text-xs uppercase hidden md:table-cell">Contacte</TableHead>
+                  <TableHead className="text-xs uppercase hidden lg:table-cell">Detall</TableHead>
+                  <TableHead className="text-xs uppercase">Estat</TableHead>
+                  <TableHead className="text-right w-20"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-10">
+                      Cap usuari trobat.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={`${user.role}-${user.id}`} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-bold text-sm">
-                        <div className="flex flex-col gap-1">
-                          <span>{user.name}</span>
-                          <span className="text-[10px] text-slate-400">{user.contact}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm">
-                        <Badge variant={user.badge}>{user.role}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-slate-600">{user.contact}</TableCell>
-                      <TableCell className="text-sm text-slate-600">{user.extra}</TableCell>
-                      <TableCell className="text-sm text-slate-600">{user.status}</TableCell>
-                      <TableCell className="text-right">
-                        {user.role === 'Gestor' ? (
-                          <Switch
-                            checked={user.status === 'Disponible'}
-                            onCheckedChange={(checked) => handleToggleAvailability(user.id, Boolean(checked))}
-                          />
-                        ) : user.role === 'Client' ? (
-                          <Select value={user.status as 'Actiu' | 'Inactiu' | 'Pendent'} onValueChange={(value) => handleClientStatusChange(user.id, value as 'Actiu' | 'Inactiu' | 'Pendent')}>
-                            <SelectTrigger className="h-9 min-w-[120px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Actiu">Actiu</SelectItem>
-                              <SelectItem value="Inactiu">Inactiu</SelectItem>
-                              <SelectItem value="Pendent">Pendent</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : user.role === 'Admin' ? (
-                          <Badge variant="secondary">Admin</Badge>
-                        ) : (
-                          <Badge variant="outline">Ràting</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                )}
+                {filtered.map(user => (
+                  <TableRow key={`${user.role}-${user.id}`} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="font-semibold text-sm">
+                      <div className="flex flex-col">
+                        <span>{user.name}</span>
+                        {user.email && <span className="text-[10px] text-slate-400 font-normal">{user.email}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] px-2 py-0">{user.role}</Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-slate-500">{user.phone || user.email || '—'}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-slate-500">{user.extra}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{user.status}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-primary"
+                          onClick={() => openEdit(user)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-destructive"
+                          onClick={() => setDeleteTarget(user)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dialog crear / editar */}
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) closeDialog(); }}>
+        <DialogContent className="max-w-lg w-[95vw] rounded-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              {isEditing ? `Editar ${form.role.toLowerCase()}` : 'Nou usuari'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            {/* Rol — només en creació */}
+            {!isEditing && (
+              <div className="space-y-1.5">
+                <Label>Rol</Label>
+                <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as AppRole }))}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gestor">Gestor</SelectItem>
+                    <SelectItem value="Perit">Perit</SelectItem>
+                    <SelectItem value="Client">Client</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Camps comuns */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="f-name">Nom</Label>
+                <Input id="f-name" value={form.name} onChange={field('name')} placeholder="Nom complet" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-phone">Telèfon</Label>
+                <Input id="f-phone" value={form.phone} onChange={field('phone')} placeholder="Telèfon" />
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      </main>
+
+            {/* Email — sempre visible (necessari per al compte d'autenticació) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="f-email">Email</Label>
+              <Input id="f-email" type="email" value={form.email} onChange={field('email')} placeholder="Email" disabled={isEditing} />
+              {isEditing && <p className="text-[10px] text-muted-foreground">L&apos;email no es pot modificar</p>}
+            </div>
+
+            {/* Camps específics per rol */}
+            {form.role === 'Perit' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-specialty">Especialitat</Label>
+                  <Input id="f-specialty" value={form.specialty} onChange={field('specialty')} placeholder="Especialitat" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-zone">Zona</Label>
+                  <Input id="f-zone" value={form.zone} onChange={field('zone')} placeholder="Zona d'actuació" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-rating">Ràting (0–5)</Label>
+                  <Input id="f-rating" type="number" step="0.1" min="0" max="5" value={form.rating} onChange={field('rating')} />
+                </div>
+              </div>
+            )}
+
+            {form.role === 'Client' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-policy">Número de pòlissa</Label>
+                  <Input id="f-policy" value={form.policyNumber} onChange={field('policyNumber')} placeholder="GC-XXXXXX-XX" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estat</Label>
+                  <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as FormState['status'] }))}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Actiu">Actiu</SelectItem>
+                      <SelectItem value="Inactiu">Inactiu</SelectItem>
+                      <SelectItem value="Pendent">Pendent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {(form.role === 'Gestor' || form.role === 'Admin') && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-slate-50 p-3">
+                <div>
+                  <p className="text-sm font-medium">{form.role === 'Gestor' ? 'Disponible' : 'Actiu'}</p>
+                  <p className="text-xs text-slate-500">
+                    {form.role === 'Gestor' ? 'Pot rebre nous casos' : 'Accés actiu al sistema'}
+                  </p>
+                </div>
+                <Switch checked={form.available} onCheckedChange={v => setForm(f => ({ ...f, available: v }))} />
+              </div>
+            )}
+
+            {/* Contrasenya — només en creació */}
+            {!isEditing && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-pass">Contrasenya</Label>
+                  <Input id="f-pass" type="password" value={form.password} onChange={field('password')} placeholder="••••••••" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-pass2">Confirmar</Label>
+                  <Input id="f-pass2" type="password" value={form.confirmPassword} onChange={field('confirmPassword')} placeholder="••••••••" />
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={closeDialog} className="h-10">Cancel·lar</Button>
+              <Button onClick={handleSave} disabled={isSaving} className="h-10">
+                {isSaving ? 'Desant...' : isEditing ? 'Desar canvis' : 'Crear usuari'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmació d'eliminació */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent className="rounded-xl w-[95vw] max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar usuari</AlertDialogTitle>
+            <AlertDialogDescription>
+              Segur que vols eliminar <strong>{deleteTarget?.name}</strong>?
+              Aquesta acció no es pot desfer i l&apos;usuari perdrà l&apos;accés immediatament.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel·lar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Eliminant...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

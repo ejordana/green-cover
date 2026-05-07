@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { UserPlus, Phone } from 'lucide-react';
-import { PortalHeader } from '@/components/portal-header';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -70,22 +69,7 @@ export default function AdminManagersPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <PortalHeader
-        title="Back-office"
-        navItems={[
-          { label: 'Sinistres', href: '/admin', active: false },
-          { label: 'Clients', href: '/admin/clients', active: false },
-          { label: 'Gestors', href: '/admin/managers', active: true },
-          { label: 'Perits', href: '/admin/experts', active: false },
-          { label: 'Usuaris', href: '/admin/users', active: false },
-        ]}
-        userName="Roger Jordana"
-        userInitials="RJ"
-        userSubtitle="Administrador"
-      />
-
-      <main className="p-4 md:p-6 max-w-7xl mx-auto w-full">
+    <div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-slate-800">Gestors GreenCover</h2>
@@ -198,7 +182,6 @@ export default function AdminManagersPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
     </div>
   );
 }

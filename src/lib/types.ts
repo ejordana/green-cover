@@ -18,6 +18,16 @@ export type ClaimStatus =
   | 'Tancat'
   | 'Denegat';
 
+export interface ClaimEvent {
+  id: string;
+  claimId: string;
+  status: ClaimStatus;
+  actorRole: 'gestor' | 'admin' | 'perit' | 'sistema';
+  actorName?: string;
+  note?: string;
+  createdAt: Date;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'manager';

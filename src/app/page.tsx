@@ -1,7 +1,6 @@
-
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Shield, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Shield, CheckCircle2 } from 'lucide-react';
 
 export default function LandingPage() {
   return (
@@ -24,7 +23,7 @@ export default function LandingPage() {
           La plataforma exclusiva per a camps de golf de referència. Declara, segueix i resol en temps real.
         </p>
 
-        <div className="flex flex-col gap-2 mb-8 text-left w-full">
+        <div className="flex flex-col gap-2 mb-10 text-left w-full">
           {['Resolució garantida en 72h', 'Avaluació IA instantània', 'Comunicació directa amb perits'].map((item) => (
             <div key={item} className="flex items-center gap-2.5 text-sm text-white/70">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
@@ -33,28 +32,11 @@ export default function LandingPage() {
           ))}
         </div>
 
-        <div className="space-y-3 w-full">
-          <Link href="/admin" className="w-full block">
-            <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/20 text-white/80 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all">
-              Admin
-            </Button>
-          </Link>
-          <Link href="/gestor" className="w-full block">
-            <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/20 text-white/80 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all">
-              Gestor
-            </Button>
-          </Link>
-          <Link href="/dashboard?role=client" className="w-full block">
-            <Button className="w-full h-12 text-sm font-semibold rounded-xl bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/20 transition-all">
-              Client
-            </Button>
-          </Link>
-          <Link href="/perit" className="w-full block">
-            <Button variant="outline" className="w-full h-12 text-sm font-semibold rounded-xl border border-white/10 text-white/50 bg-transparent hover:bg-white/5 backdrop-blur-sm transition-all">
-              Perit
-            </Button>
-          </Link>
-        </div>
+        <Link href="/login" className="w-full">
+          <Button className="w-full h-12 text-sm font-semibold rounded-xl bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/20 transition-all">
+            Accedir a la plataforma
+          </Button>
+        </Link>
 
         <p className="mt-10 text-[10px] text-white/30 font-medium uppercase tracking-widest">
           Green Cover Insurance · v1.0

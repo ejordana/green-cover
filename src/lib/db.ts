@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Claim, ChatMessage, Manager, Client, Expert, Admin, ClaimStatus, ClaimType, ClaimDocument } from './types'
+import type { Claim, ClaimEvent, ChatMessage, Manager, Client, Expert, Admin, ClaimStatus, ClaimType, ClaimDocument } from './types'
 
 function rowToClaim(row: any): Claim {
   return {
@@ -368,10 +368,46 @@ export async function sendGeneralMessage(
   return rowToMessage(data)
 }
 
+export async function getClaimEvents(claimId: string): Promise<ClaimEvent[]> {
+  const { data, error } = await supabase
+    .from('claim_events')
+    .select('*')
+    .eq('claim_id', claimId)
+    .order('created_at', { ascending: false })
+  if (error) return []
+  return (data ?? []).map(row => ({
+    id: row.id,
+    claimId: row.claim_id,
+    status: row.status as ClaimStatus,
+    actorRole: row.actor_role,
+    actorName: row.actor_name ?? undefined,
+    note: row.note ?? undefined,
+    createdAt: new Date(row.created_at),
+  }))
+}
+
+async function logClaimEvent(
+  claimId: string,
+  status: ClaimStatus,
+  actorRole: string,
+  actorName?: string,
+  note?: string
+) {
+  await supabase.from('claim_events').insert({
+    claim_id: claimId,
+    status,
+    actor_role: actorRole,
+    actor_name: actorName ?? null,
+    note: note ?? null,
+  })
+}
+
 export async function updateClaimStatus(
   claimId: string,
   status: ClaimStatus,
-  notes?: string
+  notes?: string,
+  actorRole: string = 'sistema',
+  actorName?: string
 ): Promise<void> {
   const payload: Record<string, unknown> = { status }
   if (notes !== undefined) payload.notes = notes
@@ -380,14 +416,21 @@ export async function updateClaimStatus(
     .update(payload)
     .eq('id', claimId)
   if (error) throw error
+  await logClaimEvent(claimId, status, actorRole, actorName, notes)
 }
 
-export async function assignExpert(claimId: string, expertId: string): Promise<void> {
+export async function assignExpert(
+  claimId: string,
+  expertId: string,
+  actorRole: string = 'gestor',
+  actorName?: string
+): Promise<void> {
   const { error } = await supabase
     .from('claims')
     .update({ assigned_expert_id: expertId, status: 'En peritació' })
     .eq('id', claimId)
   if (error) throw error
+  await logClaimEvent(claimId, 'En peritació', actorRole, actorName)
 }
 
 export async function addClaimDocuments(claimId: string, files: File[]): Promise<void> {
@@ -435,12 +478,12 @@ export async function submitExpertReport(
     Promise.all(newDocFiles.map(uploadClaimDocument)),
   ])
 
-  // Canvi d'estat garantit: operació independent de les columnes noves
   const { error: statusError } = await supabase
     .from('claims')
     .update({ status: 'Informe rebut' })
     .eq('id', claimId)
   if (statusError) throw statusError
+  await logClaimEvent(claimId, 'Informe rebut', 'perit')
 
   const { error: detailError } = await supabase
     .from('claims')
@@ -533,6 +576,50 @@ export async function createClient(input: {
   return rowToClient(data)
 }
 
+export async function updateManager(id: string, input: Partial<{
+  name: string; phone: string; available: boolean;
+}>): Promise<Manager> {
+  const { data, error } = await supabase.from('managers').update(input).eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToManager(data);
+}
+
+export async function updateExpert(id: string, input: Partial<{
+  name: string; phone: string; email: string; specialty: string; zone: string; rating: number;
+}>): Promise<Expert> {
+  const { data, error } = await supabase.from('experts').update(input).eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToExpert(data);
+}
+
+export async function updateClient(id: string, input: Partial<{
+  name: string; phone: string; email: string; policy_number: string; status: 'Actiu' | 'Inactiu' | 'Pendent';
+}>): Promise<Client> {
+  const { data, error } = await supabase.from('clients').update(input).eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToClient(data);
+}
+
+export async function updateAdmin(id: string, input: Partial<{
+  name: string; phone: string; email: string; active: boolean;
+}>): Promise<Admin> {
+  const { data, error } = await supabase.from('admins').update(input).eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToAdmin(data);
+}
+
+export async function deleteUser(id: string, role: 'manager' | 'expert' | 'client' | 'admin'): Promise<void> {
+  const response = await fetch('/api/users/delete', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, role }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Error eliminant usuari');
+  }
+}
+
 export async function updateManagerAvailability(id: string, available: boolean): Promise<void> {
   const { error } = await supabase
     .from('managers')
@@ -549,6 +636,49 @@ export async function updateClientStatus(id: string, status: 'Actiu' | 'Inactiu'
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function getProfileByAuth(
+  authId: string,
+  role: 'client' | 'manager' | 'expert' | 'admin'
+): Promise<{ id: string; name: string } | null> {
+  const table = { client: 'clients', manager: 'managers', expert: 'experts', admin: 'admins' }[role];
+  const { data } = await supabase.from(table).select('id, name').eq('auth_id', authId).maybeSingle();
+  return data as { id: string; name: string } | null;
+}
+
+export async function getRoleByAuthId(
+  authId: string,
+  email?: string
+): Promise<{ role: 'client' | 'manager' | 'expert' | 'admin'; id: string; name: string } | null> {
+  const tables = [
+    { role: 'admin' as const,   table: 'admins' },
+    { role: 'manager' as const, table: 'managers' },
+    { role: 'expert' as const,  table: 'experts' },
+    { role: 'client' as const,  table: 'clients' },
+  ];
+
+  // Primer intent: per auth_id
+  for (const { role, table } of tables) {
+    const { data, error } = await supabase.from(table).select('id, name').eq('auth_id', authId).maybeSingle();
+    console.log(`[getRoleByAuthId] ${table} by auth_id:`, { data, error: error?.message });
+    if (data) return { role, id: data.id, name: data.name };
+  }
+
+  // Segon intent: per email (usuaris creats manualment sense auth_id)
+  if (email) {
+    for (const { role, table } of tables) {
+      const { data, error } = await supabase.from(table).select('id, name').eq('email', email).maybeSingle();
+      console.log(`[getRoleByAuthId] ${table} by email:`, { data, error: error?.message });
+      if (data) {
+        // Intentem vincular auth_id per a properes sessions (best-effort)
+        supabase.from(table).update({ auth_id: authId }).eq('id', data.id).then(() => {});
+        return { role, id: data.id, name: data.name };
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function createClaim(input: {
@@ -576,5 +706,6 @@ export async function createClaim(input: {
     .select('*, chat_messages(*)')
     .single()
   if (error) throw error
+  await logClaimEvent(data.id, 'Declarat', 'sistema')
   return rowToClaim(data)
 }

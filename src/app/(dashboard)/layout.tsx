@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from 'react';
-import { getManager } from '@/lib/db';
+import { getManager, getProfileByAuth } from '@/lib/db';
 import type { Manager } from '@/lib/types';
 import { LayoutDashboard, FileText, Shield as ShieldIcon, Phone, MessageSquare, Headphones } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { PortalHeader } from '@/components/portal-header';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,16 +22,33 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const addQueryToHref = (href: string) => queryString ? `${href}?${queryString}` : href;
   const [manager, setManager] = useState<Manager | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [clientName, setClientName] = useState('');
+
+  const { auth, loading } = useRequireAuth('client');
 
   useEffect(() => {
+    if (!auth) return;
     getManager().then(setManager).catch(console.error);
-  }, []);
+    getProfileByAuth(auth.authId, 'client').then(profile => {
+      if (profile) setClientName(profile.name);
+    }).catch(console.error);
+  }, [auth]);
 
   const navItems = [
     { label: 'Inici', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Sinistres', href: '/claims', icon: FileText },
     { label: 'Pòlissa', href: '/policy', icon: ShieldIcon },
   ];
+
+  if (loading) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>;
+  }
+
+  const initials = clientName
+    ? clientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
 
   return (
     <div className="min-h-screen flex flex-col mx-auto bg-slate-50 pb-24 shadow-xl shadow-black/5 max-w-7xl">
@@ -41,8 +59,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           { label: 'Sinistres', href: addQueryToHref('/claims'), active: pathname.startsWith('/claims') },
           { label: 'Pòlissa', href: addQueryToHref('/policy'), active: pathname === '/policy' },
         ]}
-        userName="Real Club Golf"
-        userInitials="RC"
+        userName={clientName || auth?.email || ''}
+        userInitials={initials}
         userSubtitle={manager ? `Gestor: ${manager.name}` : undefined}
       />
 

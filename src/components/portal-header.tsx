@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Shield, LogOut, User } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -93,7 +94,10 @@ export function PortalHeader({
               {userSubtitle && <p className="text-xs text-muted-foreground">{userSubtitle}</p>}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/')} className="gap-2 text-destructive focus:text-destructive cursor-pointer">
+            <DropdownMenuItem
+              onClick={async () => { await supabase.auth.signOut(); router.replace('/login'); }}
+              className="gap-2 text-destructive focus:text-destructive cursor-pointer"
+            >
               <LogOut className="h-4 w-4" />
               Tancar sessió
             </DropdownMenuItem>

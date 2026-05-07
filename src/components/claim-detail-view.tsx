@@ -6,8 +6,10 @@ import {
   getClaimById, getExpertById, getExperts,
   assignExpert, updateClaimStatus,
   addClaimDocuments, submitExpertReport,
+  getClaimEvents,
 } from '@/lib/db';
-import type { Claim, ClaimStatus, Expert } from '@/lib/types';
+import type { Claim, ClaimEvent, ClaimStatus, Expert } from '@/lib/types';
+import { ClaimTimeline } from '@/components/claim-timeline';
 import { ChatPanel } from '@/components/chat-panel';
 import { ClaimStatusBadge } from '@/components/claim-status-badge';
 import { Button } from '@/components/ui/button';
@@ -105,6 +107,10 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
   const [assessment, setAssessment] = useState<{ damageSummary: string; suggestedClaimCategory: string; keyEntities: string[] } | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
+  // ── Timeline ──
+  const [events, setEvents] = useState<ClaimEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+
   // ── Perit ──
   const [reportText, setReportText] = useState('');
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -121,6 +127,12 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
         const c = await getClaimById(claimId);
         setClaim(c);
         if (!c) return;
+
+        // Carregar events (timeline) per a tots els rols excepte perit
+        if (role !== 'perit') {
+          setLoadingEvents(true);
+          getClaimEvents(c.id).then(setEvents).finally(() => setLoadingEvents(false));
+        }
 
         if (role === 'client') {
           if (c.assignedExpertId) {
@@ -169,10 +181,14 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
   const handleAssignExpert = async (expert: Expert) => {
     if (!claim) return;
     try {
-      await assignExpert(claim.id, expert.id);
+      await assignExpert(claim.id, expert.id, role);
       setClaim(prev => prev ? { ...prev, assignedExpertId: expert.id, status: 'En peritació', updatedAt: new Date() } : prev);
       setAssignedExpert(expert);
       setNewStatus('En peritació');
+      setEvents(prev => [{
+        id: `tmp-${Date.now()}`, claimId: claim.id, status: 'En peritació',
+        actorRole: role as ClaimEvent['actorRole'], createdAt: new Date(),
+      }, ...prev]);
       toast({ title: 'Perit assignat', description: `${expert.name} assignat al sinistre ${claim.number}.` });
     } catch {
       toast({ title: "Error en l'assignació", variant: 'destructive' });
@@ -184,8 +200,12 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
     if (!claim) return;
     setSavingStatus(true);
     try {
-      await updateClaimStatus(claim.id, newStatus, noteText);
+      await updateClaimStatus(claim.id, newStatus, noteText, role);
       setClaim(prev => prev ? { ...prev, status: newStatus, notes: noteText, updatedAt: new Date() } : prev);
+      setEvents(prev => [{
+        id: `tmp-${Date.now()}`, claimId: claim.id, status: newStatus,
+        actorRole: role as ClaimEvent['actorRole'], note: noteText || undefined, createdAt: new Date(),
+      }, ...prev]);
       toast({ title: 'Sinistre actualitzat correctament' });
     } catch (err) {
       toast({ title: "Error en l'actualització", description: err instanceof Error ? err.message : '', variant: 'destructive' });
@@ -429,6 +449,7 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
         <Tabs defaultValue="detalls" className="w-full">
           <TabsList className="w-full shadow-sm">
             <TabsTrigger value="detalls" className="flex-1">Detalls</TabsTrigger>
+            <TabsTrigger value="historial" className="flex-1">Historial</TabsTrigger>
             <TabsTrigger value="chat" className="flex-1">Gestor</TabsTrigger>
           </TabsList>
 
@@ -547,6 +568,14 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
             )}
           </TabsContent>
 
+          <TabsContent value="historial" className="mt-4">
+            <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
+              <CardContent className="p-5">
+                <ClaimTimeline events={events} loading={loadingEvents} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="chat" className="mt-4">
             <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] overflow-hidden bg-white">
               <div className="h-[calc(100dvh-240px)] flex flex-col">
@@ -565,6 +594,7 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
           <TabsList className="w-full shadow-sm">
             <TabsTrigger value="declaracio" className="flex-1">Declaració</TabsTrigger>
             <TabsTrigger value="gestio" className="flex-1">Gestió</TabsTrigger>
+            <TabsTrigger value="historial" className="flex-1">Historial</TabsTrigger>
             <TabsTrigger value="chat" className="flex-1 gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" /> Chat
               {claim.messages.length > 0 && (
@@ -582,6 +612,14 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
           <TabsContent value="gestio" className="space-y-4 mt-4">
             <AssignExpertSection />
             <StatusNotesSection />
+          </TabsContent>
+
+          <TabsContent value="historial" className="mt-4">
+            <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
+              <CardContent className="p-5">
+                <ClaimTimeline events={events} loading={loadingEvents} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="chat" className="mt-4">
@@ -605,6 +643,7 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
               Informe {claim.report && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
             </TabsTrigger>
             <TabsTrigger value="gestio" className="flex-1">Gestió</TabsTrigger>
+            <TabsTrigger value="historial" className="flex-1">Historial</TabsTrigger>
             <TabsTrigger value="chat" className="flex-1 gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" /> Chat
               {claim.messages.length > 0 && (
@@ -663,6 +702,14 @@ export function ClaimDetailView({ claimId, role, backHref }: ClaimDetailViewProp
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="historial" className="mt-4">
+            <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
+              <CardContent className="p-5">
+                <ClaimTimeline events={events} loading={loadingEvents} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="gestio" className="space-y-4 mt-4">
