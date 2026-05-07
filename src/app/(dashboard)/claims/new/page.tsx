@@ -166,6 +166,8 @@ export default function NewClaimPage() {
         description: description,
         photos: uploadedUrls,
         incidentAt: new Date(incidentAt),
+        locationLat: latitude,
+        locationLng: longitude,
       });
 
       toast({
@@ -175,10 +177,11 @@ export default function NewClaimPage() {
 
       router.push('/dashboard');
     } catch (error) {
-      console.error(error);
+      const msg = error instanceof Error ? error.message : JSON.stringify(error);
+      console.error('handleComplete error:', error);
       toast({
         title: "Error en la declaració",
-        description: "Revisa la consola per a més detalls.",
+        description: msg,
         variant: "destructive",
       });
     } finally {
@@ -217,10 +220,10 @@ export default function NewClaimPage() {
                   key={item.type}
                   onClick={() => setSelectedType(item.type)}
                   className={cn(
-                    "p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all",
+                    "p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all",
                     selectedType === item.type
-                      ? "border-primary bg-primary/5 shadow-md scale-[1.02]"
-                      : "border-transparent bg-white hover:border-muted"
+                      ? "border-primary bg-primary/5 shadow-[0_2px_12px_rgba(0,0,0,0.1)] scale-[1.02]"
+                      : "border-transparent bg-white shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.1)] hover:border-primary/20"
                   )}
                 >
                   <span className="text-2xl">{item.icon}</span>
@@ -359,7 +362,7 @@ export default function NewClaimPage() {
             <Label className="text-lg font-bold">Ubicació i Confirmació</Label>
 
             {/* Geolocation Controls */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="p-5 rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-3">
               <p className="text-sm font-semibold text-slate-900">Ajusta la ubicació del sinistre</p>
               
               <div className="grid grid-cols-2 gap-2">
@@ -400,7 +403,7 @@ export default function NewClaimPage() {
               </p>
             </div>
 
-            <Card className="bg-white overflow-hidden border-none shadow-sm">
+            <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white overflow-hidden">
               <div 
                 className="relative h-72 w-full cursor-crosshair"
                 onClick={handleMapClick}
@@ -450,7 +453,7 @@ export default function NewClaimPage() {
               </CardContent>
             </Card>
 
-            <div className="p-4 rounded-xl bg-accent text-accent-foreground text-sm flex gap-3">
+            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 text-sm flex gap-3 text-foreground">
               <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
               <p>El teu gestor rebrà la declaració i obrirà el cas en menys de 2 hores.</p>
             </div>
@@ -458,8 +461,9 @@ export default function NewClaimPage() {
           <Button
             className="w-full h-14 text-xl font-bold shadow-lg shadow-primary/30"
             onClick={handleComplete}
+            disabled={isUploading}
           >
-            Confirmar Declaració
+            {isUploading ? 'Enviant...' : 'Confirmar Declaració'}
           </Button>
         </div>
       )}

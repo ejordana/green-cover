@@ -8,11 +8,15 @@ export interface ClaimDocument {
 
 export type ClaimStatus =
   | 'Declarat'
-  | 'Perit designat'
-  | 'Informe rebut' 
-  | 'Aprovat' 
-  | 'Pagat' 
-  | 'Tancat';
+  | 'En validació'
+  | 'Documentació pendent'
+  | 'En avaluació'
+  | 'En peritació'
+  | 'Informe rebut'
+  | 'Aprovat'
+  | 'Pagat'
+  | 'Tancat'
+  | 'Denegat';
 
 export interface ChatMessage {
   id: string;

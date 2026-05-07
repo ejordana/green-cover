@@ -385,7 +385,22 @@ export async function updateClaimStatus(
 export async function assignExpert(claimId: string, expertId: string): Promise<void> {
   const { error } = await supabase
     .from('claims')
-    .update({ assigned_expert_id: expertId, status: 'Perit designat' })
+    .update({ assigned_expert_id: expertId, status: 'En peritació' })
+    .eq('id', claimId)
+  if (error) throw error
+}
+
+export async function addClaimDocuments(claimId: string, files: File[]): Promise<void> {
+  const { data: current } = await supabase
+    .from('claims')
+    .select('documents')
+    .eq('id', claimId)
+    .maybeSingle()
+  const existingDocs: ClaimDocument[] = current?.documents ?? []
+  const uploaded = await Promise.all(files.map(uploadClaimDocument))
+  const { error } = await supabase
+    .from('claims')
+    .update({ documents: [...existingDocs, ...uploaded] })
     .eq('id', claimId)
   if (error) throw error
 }

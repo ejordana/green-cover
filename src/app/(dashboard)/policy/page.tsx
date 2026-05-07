@@ -39,7 +39,7 @@ export default function PolicyPage() {
         <h2 className="text-xl font-bold">La Teva Pòlissa</h2>
       </div>
 
-      <Card className="bg-primary text-white border-none overflow-hidden">
+      <Card className="rounded-2xl bg-primary text-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.12)] overflow-hidden">
         <CardContent className="p-6">
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -67,7 +67,7 @@ export default function PolicyPage() {
           <HelpCircle className="h-5 w-5 text-secondary" />
           <h3 className="font-bold">Consultes de Cobertura (IA)</h3>
         </div>
-        <Card className="bg-white border-none shadow-sm">
+        <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
           <CardContent className="p-4 space-y-4">
             <p className="text-sm text-muted-foreground">Pregunta qualsevol dubte sobre les teves cobertures i la nostra IA t'ajudarà a trobar la resposta a la pòlissa.</p>
             <div className="relative">

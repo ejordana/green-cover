@@ -39,7 +39,7 @@ function DashboardContent() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-3xl bg-white/90 border border-border/70 p-5 shadow-sm">
+      <section className="rounded-2xl bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
         <div className="mb-2 text-sm font-semibold text-primary uppercase tracking-[0.24em]">Benvingut</div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
@@ -48,7 +48,7 @@ function DashboardContent() {
       </section>
 
       <section className="grid grid-cols-2 gap-3">
-        <Card className="bg-white border border-border/60 shadow-sm">
+        <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="bg-primary/10 p-1.5 rounded-lg">
@@ -61,7 +61,7 @@ function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-border/60 shadow-sm">
+        <Card className="rounded-2xl border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] bg-white">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="bg-emerald-500/10 p-1.5 rounded-lg">
@@ -104,7 +104,7 @@ function DashboardContent() {
             ))}
           </div>
         ) : (
-          <Card className="bg-white border border-dashed border-border shadow-none">
+          <Card className="rounded-2xl bg-white border border-dashed border-border/60 shadow-none">
             <CardContent className="p-8 text-center text-muted-foreground text-sm">
               No tens sinistres actius actualment.
             </CardContent>

@@ -154,7 +154,7 @@ export default function AdminManagersPage() {
           </Dialog>
         </div>
 
-        <Card className="border-none shadow-sm overflow-hidden">
+        <Card className="border-0 shadow-[0_2px_12px_rgba(0,0,0,0.08)] rounded-2xl overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>

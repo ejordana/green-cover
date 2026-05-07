@@ -31,11 +31,11 @@ export default function GestorHomePage() {
   const h24ago = useMemo(() => new Date(now.getTime() - 24 * 60 * 60 * 1000), [now]);
 
   const totalActius = useMemo(
-    () => claims.filter(c => c.status !== 'Tancat' && c.status !== 'Pagat').length,
+    () => claims.filter(c => c.status !== 'Tancat' && c.status !== 'Pagat' && c.status !== 'Denegat').length,
     [claims]
   );
   const pendents = useMemo(
-    () => claims.filter(c => c.status === 'Declarat').length,
+    () => claims.filter(c => c.status === 'Declarat' || c.status === 'Informe rebut').length,
     [claims]
   );
   const slaRisc = useMemo(
@@ -102,7 +102,7 @@ export default function GestorHomePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* KPIs */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Resum d'activitat</p>
